@@ -1,0 +1,6 @@
+{
+  "name": "Instagram",
+  "description": "Mobile-first Instagram app featuring Home Feed, Reels, Explore, Direct Messages, Profile, Apify account scraper, and live-editable Reel Insights.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
