@@ -45,7 +45,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import com.example.R
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -110,10 +112,10 @@ fun ProfileScreen(
         ) {
             IconButton(onClick = {}) {
                 Icon(
-                    imageVector = Icons.Outlined.Add,
+                    painter = painterResource(R.drawable.ic_ig_create),
                     contentDescription = "Create",
                     tint = colors.textPrimary,
-                    modifier = Modifier.size(28.dp),
+                    modifier = Modifier.size(26.dp),
                 )
             }
 
@@ -158,7 +160,7 @@ fun ProfileScreen(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = {}) {
                     Icon(
-                        imageVector = Icons.Outlined.AlternateEmail,
+                        painter = painterResource(R.drawable.ic_ig_threads),
                         contentDescription = "Threads",
                         tint = colors.textPrimary,
                         modifier = Modifier.size(24.dp),
@@ -169,10 +171,10 @@ fun ProfileScreen(
                     modifier = Modifier.testTag("profile_top_menu_button"),
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.Menu,
+                        painter = painterResource(R.drawable.ic_ig_menu),
                         contentDescription = "Menu",
                         tint = colors.textPrimary,
-                        modifier = Modifier.size(26.dp),
+                        modifier = Modifier.size(24.dp),
                     )
                 }
             }

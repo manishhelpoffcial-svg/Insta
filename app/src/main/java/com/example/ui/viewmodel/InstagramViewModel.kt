@@ -17,6 +17,9 @@ import com.example.data.model.ProfileData
 import com.example.data.model.ReelInsights
 import com.example.data.model.SourceShare
 import com.example.data.network.ApifyRepository
+import com.example.data.network.AuthSession
+import com.example.data.network.SubscriptionAccessResult
+import com.example.data.network.SupabaseAuthRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -55,10 +58,36 @@ sealed class FetchAccountUiState {
     data class Error(val message: String) : FetchAccountUiState()
 }
 
+enum class AuthScreenType {
+    LOGIN,
+    REGISTER,
+    FORGOT_PASSWORD,
+}
+
+sealed class AuthUiState {
+    data object CheckingSession : AuthUiState()
+    data class Unauthenticated(
+        val screen: AuthScreenType = AuthScreenType.LOGIN,
+        val isLoading: Boolean = false,
+        val errorMessage: String? = null,
+        val infoMessage: String? = null,
+    ) : AuthUiState()
+    data class AccessGated(
+        val accessResult: SubscriptionAccessResult,
+    ) : AuthUiState()
+    data class Authenticated(
+        val session: AuthSession,
+    ) : AuthUiState()
+}
+
 class InstagramViewModel(application: Application) : AndroidViewModel(application) {
 
     private val storage = InstagramStorage(application.applicationContext)
     private val apifyRepository = ApifyRepository()
+    private val supabaseAuthRepository = SupabaseAuthRepository()
+
+    private val _authUiState = MutableStateFlow<AuthUiState>(AuthUiState.CheckingSession)
+    val authUiState: StateFlow<AuthUiState> = _authUiState.asStateFlow()
 
     private val _appState = MutableStateFlow(storage.loadState())
     val appState: StateFlow<AppDataState> = _appState.asStateFlow()
@@ -77,6 +106,158 @@ class InstagramViewModel(application: Application) : AndroidViewModel(applicatio
 
     init {
         storage.clearLegacyApifyToken()
+        checkInitialSession()
+    }
+
+    fun checkInitialSession() {
+        viewModelScope.launch {
+            _authUiState.value = AuthUiState.CheckingSession
+            val cachedSession = storage.loadAuthSession()
+            if (cachedSession == null) {
+                _authUiState.value = AuthUiState.Unauthenticated()
+                return@launch
+            }
+
+            // Verify subscription access
+            val verifyResult = supabaseAuthRepository.verifyUserAccess(
+                userId = cachedSession.userId,
+                accessToken = cachedSession.accessToken,
+            )
+
+            if (verifyResult.isSuccess) {
+                val access = verifyResult.getOrThrow()
+                storage.saveSubscriptionAccess(access)
+                if (access.isAllowed) {
+                    _authUiState.value = AuthUiState.Authenticated(cachedSession)
+                } else {
+                    _authUiState.value = AuthUiState.AccessGated(access)
+                }
+            } else {
+                val cachedAccess = storage.loadSubscriptionAccess()
+                if (cachedAccess != null && cachedAccess.isAllowed) {
+                    _authUiState.value = AuthUiState.Authenticated(cachedSession)
+                } else {
+                    _authUiState.value = AuthUiState.Unauthenticated(
+                        errorMessage = "Session expired. Please log in again."
+                    )
+                }
+            }
+        }
+    }
+
+    fun setAuthScreen(screen: AuthScreenType) {
+        _authUiState.value = AuthUiState.Unauthenticated(screen = screen)
+    }
+
+    fun login(identifier: String, pass: String) {
+        val currentScreen = (_authUiState.value as? AuthUiState.Unauthenticated)?.screen ?: AuthScreenType.LOGIN
+        _authUiState.value = AuthUiState.Unauthenticated(screen = currentScreen, isLoading = true)
+
+        viewModelScope.launch {
+            val result = supabaseAuthRepository.login(identifier, pass)
+            if (result.isFailure) {
+                val err = result.exceptionOrNull()?.message ?: "Login failed. Please check credentials."
+                _authUiState.value = AuthUiState.Unauthenticated(screen = currentScreen, isLoading = false, errorMessage = err)
+                return@launch
+            }
+
+            val session = result.getOrThrow()
+            storage.saveAuthSession(session)
+
+            if (!session.username.isNullOrBlank()) {
+                _appState.update { current ->
+                    current.copy(profile = current.profile.copy(username = session.username))
+                }
+            }
+
+            val verifyResult = supabaseAuthRepository.verifyUserAccess(session.userId, session.accessToken)
+            if (verifyResult.isSuccess) {
+                val access = verifyResult.getOrThrow()
+                storage.saveSubscriptionAccess(access)
+                if (access.isAllowed) {
+                    _authUiState.value = AuthUiState.Authenticated(session)
+                } else {
+                    _authUiState.value = AuthUiState.AccessGated(access)
+                }
+            } else {
+                _authUiState.value = AuthUiState.Authenticated(session)
+            }
+        }
+    }
+
+    fun register(email: String, username: String, pass: String) {
+        val currentScreen = AuthScreenType.REGISTER
+        _authUiState.value = AuthUiState.Unauthenticated(screen = currentScreen, isLoading = true)
+
+        viewModelScope.launch {
+            val result = supabaseAuthRepository.register(email, username, pass)
+            if (result.isFailure) {
+                val err = result.exceptionOrNull()?.message ?: "Registration failed."
+                _authUiState.value = AuthUiState.Unauthenticated(screen = currentScreen, isLoading = false, errorMessage = err)
+                return@launch
+            }
+
+            val session = result.getOrThrow()
+            if (session.accessToken.isNotBlank()) {
+                storage.saveAuthSession(session)
+                _authUiState.value = AuthUiState.AccessGated(
+                    SubscriptionAccessResult(
+                        isAllowed = false,
+                        accountStatus = "active",
+                        subscriptionStatus = "pending",
+                        expiryDate = null,
+                        productName = "Insight Editor",
+                        message = "Account created! Please activate a subscription plan via Discord (/purchase) to access the application."
+                    )
+                )
+            } else {
+                _authUiState.value = AuthUiState.Unauthenticated(
+                    screen = AuthScreenType.LOGIN,
+                    infoMessage = "Account registered! Please check your email to verify your address, then log in."
+                )
+            }
+        }
+    }
+
+    fun forgotPassword(email: String) {
+        val currentScreen = AuthScreenType.FORGOT_PASSWORD
+        _authUiState.value = AuthUiState.Unauthenticated(screen = currentScreen, isLoading = true)
+
+        viewModelScope.launch {
+            val result = supabaseAuthRepository.sendPasswordReset(email)
+            if (result.isSuccess) {
+                _authUiState.value = AuthUiState.Unauthenticated(
+                    screen = currentScreen,
+                    isLoading = false,
+                    infoMessage = "Password reset link sent to $email. Please check your inbox."
+                )
+            } else {
+                val err = result.exceptionOrNull()?.message ?: "Could not send reset email."
+                _authUiState.value = AuthUiState.Unauthenticated(
+                    screen = currentScreen,
+                    isLoading = false,
+                    errorMessage = err
+                )
+            }
+        }
+    }
+
+    fun logout() {
+        storage.clearAuthSession()
+        _authUiState.value = AuthUiState.Unauthenticated(screen = AuthScreenType.LOGIN)
+    }
+
+    fun continueGuestMode() {
+        _authUiState.value = AuthUiState.Authenticated(
+            AuthSession(
+                userId = "guest_demo",
+                email = "demo@instagram.local",
+                username = "themovietimez",
+                accessToken = "",
+                refreshToken = "",
+                expiresAt = Long.MAX_VALUE
+            )
+        )
     }
 
     private val _activeCommentsPostId = MutableStateFlow<String?>(null)

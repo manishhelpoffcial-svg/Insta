@@ -53,7 +53,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.ui.AspectRatioFrameLayout
 import com.example.data.DefaultSampleData
-import com.example.data.model.MediaPost
+import androidx.compose.ui.res.painterResource
+import com.example.R
 import com.example.data.network.ApifyRepository
 import com.example.ui.components.AvatarView
 import com.example.ui.components.DoubleTapHeartOverlay
@@ -150,10 +151,10 @@ fun ReelsScreen(
         ) {
             IconButton(onClick = {}) {
                 Icon(
-                    imageVector = Icons.Outlined.Add,
+                    painter = painterResource(R.drawable.ic_ig_create),
                     contentDescription = "Create Reel",
                     tint = Color.White,
-                    modifier = Modifier.size(28.dp),
+                    modifier = Modifier.size(26.dp),
                 )
             }
             Spacer(Modifier.width(24.dp))
@@ -416,7 +417,7 @@ private fun ReelPage(
                 modifier = Modifier.size(36.dp),
             ) {
                 Icon(
-                    imageVector = Icons.Filled.MoreVert,
+                    painter = painterResource(R.drawable.ic_ig_more_dots),
                     contentDescription = "More",
                     tint = Color.White,
                     modifier = Modifier.size(22.dp),

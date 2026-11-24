@@ -22,6 +22,20 @@ function normalizeUsername(raw) {
     return extracted.replace(/^@+/, '').trim();
 }
 
+function getApifyTokens() {
+    const list = [];
+    const primary = (process.env.APIFY_API_TOKEN || process.env.APIFY_TOKEN || '').trim();
+    if (primary && primary !== 'MY_APIFY_API_TOKEN') list.push(primary);
+
+    for (let i = 1; i <= 7; i++) {
+        const backup = (process.env[`APIFY_BACKUP_TOKEN_${i}`] || '').trim();
+        if (backup && !backup.startsWith('MY_') && !list.includes(backup)) {
+            list.push(backup);
+        }
+    }
+    return list;
+}
+
 const server = http.createServer(async (req, res) => {
     if (req.method === 'OPTIONS') {
         sendJson(res, 204, {});
@@ -34,10 +48,10 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'POST' && req.url === '/api/fetch-account') {
-        const apiToken = (process.env.APIFY_API_TOKEN || process.env.APIFY_TOKEN || '').trim();
-        if (!apiToken || apiToken === 'MY_APIFY_API_TOKEN') {
+        const tokens = getApifyTokens();
+        if (tokens.length === 0) {
             sendJson(res, 500, {
-                error: 'APIFY_API_TOKEN is not configured on the backend server.',
+                error: 'No valid Apify API tokens (primary or backup 1..7) configured in .env',
             });
             return;
         }
@@ -49,33 +63,50 @@ const server = http.createServer(async (req, res) => {
         });
 
         req.on('end', async () => {
-            try {
-                const parsed = body ? JSON.parse(body) : {};
-                const cleanUsername = normalizeUsername(parsed.username);
-                if (!cleanUsername) {
-                    sendJson(res, 400, { error: 'Please enter a valid Instagram username.' });
-                    return;
-                }
-
-                const client = new ApifyClient({ token: apiToken });
-                const input = {
-                    usernames: [cleanUsername],
-                };
-
-                const run = await client.actor(ACTOR_ID).call(input);
-                const { items } = await client.dataset(run.defaultDatasetId).listItems();
-
-                sendJson(res, 200, {
-                    username: cleanUsername,
-                    runId: run.id,
-                    datasetUrl: `https://console.apify.com/storage/datasets/${run.defaultDatasetId}`,
-                    items: Array.isArray(items) ? items : [],
-                });
-            } catch (err) {
-                sendJson(res, 502, {
-                    error: err?.message || 'Unable to load Instagram profile right now.',
-                });
+            const parsed = body ? JSON.parse(body) : {};
+            const cleanUsername = normalizeUsername(parsed.username);
+            if (!cleanUsername) {
+                sendJson(res, 400, { error: 'Please enter a valid Instagram username.' });
+                return;
             }
+
+            let lastError = null;
+            for (let i = 0; i < tokens.length; i++) {
+                const token = tokens[i];
+                const tokenLabel = i === 0 ? 'Primary Token' : `Backup Token #${i}`;
+                try {
+                    const client = new ApifyClient({ token });
+                    const input = {
+                        usernames: [cleanUsername],
+                    };
+
+                    const run = await client.actor(ACTOR_ID).call(input);
+                    const { items } = await client.dataset(run.defaultDatasetId).listItems();
+
+                    sendJson(res, 200, {
+                        username: cleanUsername,
+                        runId: run.id,
+                        datasetUrl: `https://console.apify.com/storage/datasets/${run.defaultDatasetId}`,
+                        items: Array.isArray(items) ? items : [],
+                    });
+                    return;
+                } catch (err) {
+                    lastError = err;
+                    const msg = (err?.message || '').toLowerCase();
+                    const isLimitOrAuth = msg.includes('401') || msg.includes('402') || msg.includes('403') ||
+                        msg.includes('429') || msg.includes('limit') || msg.includes('usage') || msg.includes('credit');
+
+                    if (isLimitOrAuth && i < tokens.length - 1) {
+                        console.warn(`[Apify] ${tokenLabel} failed (${err.message}). Trying next backup token...`);
+                        continue;
+                    }
+                    break;
+                }
+            }
+
+            sendJson(res, 502, {
+                error: lastError?.message || 'Unable to load Instagram profile right now (All tokens exhausted).',
+            });
         });
         return;
     }

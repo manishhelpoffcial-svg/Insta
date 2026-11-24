@@ -32,18 +32,52 @@ class ApifyRepository {
     private val client = MediaClient.getOkHttpClient()
 
     private fun resolveBackendUrl(): String {
-        return BuildConfig.APIFY_BACKEND_URL.trim()
-            .takeIf { it.isNotBlank() && it != "MY_APIFY_BACKEND_URL" }
-            ?.trimEnd('/')
-            .orEmpty()
+        val raw = BuildConfig.APIFY_BACKEND_URL.trim()
+        if (raw.isBlank() || raw == "MY_APIFY_BACKEND_URL" || raw.startsWith("apify_", ignoreCase = true)) {
+            return ""
+        }
+        val withScheme = if (!raw.startsWith("http://", ignoreCase = true) && !raw.startsWith("https://", ignoreCase = true)) {
+            if (!raw.contains(".") || raw.contains(" ")) return ""
+            "https://$raw"
+        } else {
+            raw
+        }
+        return withScheme.trimEnd('/')
     }
 
-    private fun resolveEnvToken(): String {
+    private fun getBuildConfigString(key: String): String {
+        return runCatching {
+            val field = BuildConfig::class.java.getField(key)
+            field.get(null)?.toString().orEmpty()
+        }.getOrDefault("")
+    }
+
+    private fun resolveTokenList(): List<String> {
+        val list = mutableListOf<String>()
+
         val primaryEnv = BuildConfig.APIFY_API_TOKEN.trim()
             .takeIf { it.isNotBlank() && it != "MY_APIFY_API_TOKEN" }
+        if (!primaryEnv.isNullOrBlank()) list.add(primaryEnv)
+
         val legacyEnv = BuildConfig.APIFY_TOKEN.trim()
             .takeIf { it.isNotBlank() && it != "MY_APIFY_TOKEN" }
-        return primaryEnv ?: legacyEnv ?: ""
+        if (!legacyEnv.isNullOrBlank() && !list.contains(legacyEnv)) list.add(legacyEnv)
+
+        // Automatic Fallback Backup Tokens 1 through 7
+        for (i in 1..7) {
+            val backup = getBuildConfigString("APIFY_BACKUP_TOKEN_$i").trim()
+            if (backup.isNotBlank() && !backup.startsWith("MY_") && !list.contains(backup)) {
+                list.add(backup)
+            }
+        }
+
+        val backendUrlAsToken = BuildConfig.APIFY_BACKEND_URL.trim()
+            .takeIf { it.startsWith("apify_", ignoreCase = true) }
+        if (!backendUrlAsToken.isNullOrBlank() && !list.contains(backendUrlAsToken)) {
+            list.add(backendUrlAsToken)
+        }
+
+        return list
     }
 
     suspend fun fetchInstagramProfile(
@@ -61,16 +95,57 @@ class ApifyRepository {
             return@withContext fetchViaSecureBackend(backendUrl, cleanUsername)
         }
 
-        val resolvedToken = resolveEnvToken()
-        if (resolvedToken.isBlank()) {
+        val tokenList = resolveTokenList()
+        if (tokenList.isEmpty()) {
             return@withContext Result.failure(
                 IllegalStateException(
-                    "Configure APIFY_BACKEND_URL or APIFY_API_TOKEN in the AI Studio Secrets panel."
+                    "Configure APIFY_API_TOKEN or APIFY_BACKUP_TOKEN_1..7 in the .env file."
                 )
             )
         }
 
-        try {
+        var lastError: Exception? = null
+
+        for ((index, token) in tokenList.withIndex()) {
+            val tokenName = if (index == 0) "Primary Token" else "Backup Token #$index"
+            val result = executeScraperWithToken(cleanUsername, token)
+            if (result.isSuccess) {
+                return@withContext result
+            }
+
+            val err = result.exceptionOrNull() as? Exception ?: RuntimeException(result.exceptionOrNull()?.message)
+            lastError = err
+            val msg = err.message.orEmpty().lowercase()
+
+            val isCreditOrAuthLimit = msg.contains("401") ||
+                msg.contains("402") ||
+                msg.contains("403") ||
+                msg.contains("429") ||
+                msg.contains("usage limit") ||
+                msg.contains("credits") ||
+                msg.contains("rate limit") ||
+                msg.contains("unauthorized")
+
+            if (isCreditOrAuthLimit && index < tokenList.size - 1) {
+                android.util.Log.w(
+                    "ApifyRepository",
+                    "$tokenName failed with: ${err.message}. Rotating automatically to next backup token..."
+                )
+                continue
+            } else if (!isCreditOrAuthLimit) {
+                // If it's another kind of error (e.g. empty target), return directly
+                return@withContext result
+            }
+        }
+
+        Result.failure(lastError ?: RuntimeException("All Apify tokens failed."))
+    }
+
+    private fun executeScraperWithToken(
+        cleanUsername: String,
+        resolvedToken: String,
+    ): Result<FetchedAccountResult> {
+        return try {
             // Exact Actor input for apify/instagram-profile-scraper
             val payload = buildProfileScraperPayload(cleanUsername)
 
@@ -87,13 +162,14 @@ class ApifyRepository {
                 if (!response.isSuccessful) {
                     val hint = when (response.code) {
                         401, 403 -> "Invalid or unauthorized APIFY_API_TOKEN (${response.code})."
-                        402 -> "Apify account usage limit reached (402)."
+                        402 -> "Apify account usage limit reached (402 credits expired)."
+                        429 -> "Apify rate limit exceeded (429)."
                         else -> "Apify error (${response.code}): ${body.take(180)}"
                     }
-                    return@withContext Result.failure(RuntimeException(hint))
+                    return Result.failure(RuntimeException(hint))
                 }
                 runData = JSONObject(body).optJSONObject("data")
-                    ?: return@withContext Result.failure(RuntimeException("Unexpected Apify run response."))
+                    ?: return Result.failure(RuntimeException("Unexpected Apify run response."))
             }
 
             val runId = runData.optString("id", "")
@@ -113,7 +189,7 @@ class ApifyRepository {
                 client.newCall(pollRequest).execute().use { pollResponse ->
                     val pollBody = pollResponse.body?.string().orEmpty()
                     if (!pollResponse.isSuccessful) {
-                        return@withContext Result.failure(
+                        return Result.failure(
                             RuntimeException("Failed polling Apify run (${pollResponse.code}).")
                         )
                     }
@@ -124,12 +200,12 @@ class ApifyRepository {
             }
 
             if (status != "SUCCEEDED") {
-                return@withContext Result.failure(
+                return Result.failure(
                     RuntimeException("Apify run did not succeed (status: $status).")
                 )
             }
             if (datasetId.isBlank()) {
-                return@withContext Result.failure(
+                return Result.failure(
                     RuntimeException("Apify run completed without a dataset ID.")
                 )
             }
@@ -146,7 +222,7 @@ class ApifyRepository {
             client.newCall(itemsRequest).execute().use { itemsResponse ->
                 val itemsBody = itemsResponse.body?.string().orEmpty()
                 if (!itemsResponse.isSuccessful) {
-                    return@withContext Result.failure(
+                    return Result.failure(
                         RuntimeException("Failed fetching Apify dataset items (${itemsResponse.code}).")
                     )
                 }

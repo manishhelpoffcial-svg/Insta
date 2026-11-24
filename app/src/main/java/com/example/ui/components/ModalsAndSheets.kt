@@ -105,6 +105,7 @@ fun FetchInstagramAccountModal(
     onDismiss: () -> Unit,
     onSubmitUsername: (username: String) -> Unit,
     onInputChanged: () -> Unit = {},
+    onLogoutClick: (() -> Unit)? = null,
 ) {
     val colors = InstagramTheme.colors
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -235,6 +236,24 @@ fun FetchInstagramAccountModal(
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("fetch_error_text"),
+                )
+            }
+
+            if (onLogoutClick != null) {
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = "Log Out of Account",
+                    color = IgNotifRed,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            onDismiss()
+                            onLogoutClick()
+                        }
+                        .padding(vertical = 8.dp),
                 )
             }
         }

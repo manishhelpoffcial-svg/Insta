@@ -42,7 +42,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.DefaultSampleData
-import com.example.data.model.MediaPost
+import androidx.compose.ui.res.painterResource
+import com.example.R
 import com.example.data.model.ProfileData
 import com.example.ui.components.AvatarView
 import com.example.ui.components.IgEyeIcon
@@ -107,9 +108,10 @@ fun CreatorProfileScreen(
                 modifier = Modifier.testTag("creator_profile_back"),
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    painter = painterResource(R.drawable.ic_ig_back),
                     contentDescription = "Back",
                     tint = colors.textPrimary,
+                    modifier = Modifier.size(24.dp),
                 )
             }
             Spacer(Modifier.width(4.dp))
@@ -132,9 +134,10 @@ fun CreatorProfileScreen(
             }
             IconButton(onClick = {}) {
                 Icon(
-                    imageVector = Icons.Filled.MoreVert,
+                    painter = painterResource(R.drawable.ic_ig_more_dots),
                     contentDescription = "More options",
                     tint = colors.textPrimary,
+                    modifier = Modifier.size(20.dp),
                 )
             }
         }

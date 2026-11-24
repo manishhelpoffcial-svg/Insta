@@ -1,0 +1,18 @@
+{
+  "name": "instagram-subscription-discord-bot",
+  "version": "1.0.0",
+  "description": "Discord Payment, Account Management & Subscription Bot for Instagram Clone",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
+    "discord.js": "^14.17.3",
+    "dotenv": "^16.4.7",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^6.10.0"
+  }
+}

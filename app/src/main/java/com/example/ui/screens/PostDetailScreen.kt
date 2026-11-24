@@ -65,7 +65,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.ui.AspectRatioFrameLayout
 import com.example.data.DefaultSampleData
-import com.example.data.model.MediaPost
+import androidx.compose.ui.res.painterResource
+import com.example.R
 import com.example.data.model.ProfileData
 import com.example.data.network.ApifyRepository
 import com.example.ui.components.AvatarView
@@ -149,9 +150,10 @@ fun PostDetailScreen(
                 modifier = Modifier.testTag("post_detail_back"),
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    painter = painterResource(R.drawable.ic_ig_back),
                     contentDescription = "Back",
                     tint = colors.textPrimary,
+                    modifier = Modifier.size(24.dp),
                 )
             }
             Spacer(Modifier.width(6.dp))

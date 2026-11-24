@@ -47,7 +47,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import com.example.R
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
@@ -148,10 +149,10 @@ fun HomeScreen(
                 modifier = Modifier.size(48.dp),
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.Add,
+                    painter = painterResource(R.drawable.ic_ig_create),
                     contentDescription = "Create",
                     tint = colors.textPrimary,
-                    modifier = Modifier.size(28.dp),
+                    modifier = Modifier.size(26.dp),
                 )
             }
 
@@ -421,7 +422,7 @@ private fun FeedPostCard(
                 modifier = Modifier.size(36.dp),
             ) {
                 Icon(
-                    imageVector = Icons.Filled.MoreVert,
+                    painter = painterResource(R.drawable.ic_ig_more_dots),
                     contentDescription = "More options",
                     tint = colors.textPrimary,
                     modifier = Modifier.size(20.dp),

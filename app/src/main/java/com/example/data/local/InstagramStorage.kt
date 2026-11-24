@@ -3,6 +3,8 @@ package com.example.data.local
 import android.content.Context
 import com.example.data.DefaultSampleData
 import com.example.data.model.AppDataState
+import com.example.data.network.AuthSession
+import com.example.data.network.SubscriptionAccessResult
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 
@@ -122,11 +124,88 @@ class InstagramStorage(context: Context) {
         return DefaultSampleData.createInitialState()
     }
 
+    fun saveAuthSession(session: AuthSession) {
+        prefs.edit()
+            .putString(KEY_AUTH_USER_ID, session.userId)
+            .putString(KEY_AUTH_EMAIL, session.email)
+            .putString(KEY_AUTH_USERNAME, session.username)
+            .putString(KEY_AUTH_ACCESS_TOKEN, session.accessToken)
+            .putString(KEY_AUTH_REFRESH_TOKEN, session.refreshToken)
+            .putLong(KEY_AUTH_EXPIRES_AT, session.expiresAt)
+            .apply()
+    }
+
+    fun loadAuthSession(): AuthSession? {
+        val token = prefs.getString(KEY_AUTH_ACCESS_TOKEN, null) ?: return null
+        val userId = prefs.getString(KEY_AUTH_USER_ID, null) ?: return null
+        val email = prefs.getString(KEY_AUTH_EMAIL, "") ?: ""
+        val username = prefs.getString(KEY_AUTH_USERNAME, null)
+        val refreshToken = prefs.getString(KEY_AUTH_REFRESH_TOKEN, "") ?: ""
+        val expiresAt = prefs.getLong(KEY_AUTH_EXPIRES_AT, 0L)
+
+        return AuthSession(
+            userId = userId,
+            email = email,
+            username = username,
+            accessToken = token,
+            refreshToken = refreshToken,
+            expiresAt = expiresAt,
+        )
+    }
+
+    fun clearAuthSession() {
+        prefs.edit()
+            .remove(KEY_AUTH_USER_ID)
+            .remove(KEY_AUTH_EMAIL)
+            .remove(KEY_AUTH_USERNAME)
+            .remove(KEY_AUTH_ACCESS_TOKEN)
+            .remove(KEY_AUTH_REFRESH_TOKEN)
+            .remove(KEY_AUTH_EXPIRES_AT)
+            .remove(KEY_SUB_IS_ALLOWED)
+            .remove(KEY_SUB_STATUS)
+            .remove(KEY_SUB_EXPIRY)
+            .remove(KEY_SUB_PRODUCT)
+            .apply()
+    }
+
+    fun saveSubscriptionAccess(access: SubscriptionAccessResult) {
+        prefs.edit()
+            .putBoolean(KEY_SUB_IS_ALLOWED, access.isAllowed)
+            .putString(KEY_SUB_STATUS, access.subscriptionStatus)
+            .putString(KEY_SUB_EXPIRY, access.expiryDate)
+            .putString(KEY_SUB_PRODUCT, access.productName)
+            .apply()
+    }
+
+    fun loadSubscriptionAccess(): SubscriptionAccessResult? {
+        if (!prefs.contains(KEY_SUB_IS_ALLOWED)) return null
+        return SubscriptionAccessResult(
+            isAllowed = prefs.getBoolean(KEY_SUB_IS_ALLOWED, false),
+            accountStatus = "active",
+            subscriptionStatus = prefs.getString(KEY_SUB_STATUS, null),
+            expiryDate = prefs.getString(KEY_SUB_EXPIRY, null),
+            productName = prefs.getString(KEY_SUB_PRODUCT, null),
+            message = "Cached access status",
+        )
+    }
+
     companion object {
         private const val PREFS_NAME = "instagram_clone_prefs_v1"
         private const val KEY_STATE = "app_data_state_json"
         private const val KEY_APIFY_TOKEN = "saved_apify_token"
         private const val KEY_DEMO_VERSION = "demo_seed_version"
         private const val CURRENT_DEMO_VERSION = 2
+
+        private const val KEY_AUTH_USER_ID = "auth_user_id"
+        private const val KEY_AUTH_EMAIL = "auth_email"
+        private const val KEY_AUTH_USERNAME = "auth_username"
+        private const val KEY_AUTH_ACCESS_TOKEN = "auth_access_token"
+        private const val KEY_AUTH_REFRESH_TOKEN = "auth_refresh_token"
+        private const val KEY_AUTH_EXPIRES_AT = "auth_expires_at"
+
+        private const val KEY_SUB_IS_ALLOWED = "sub_is_allowed"
+        private const val KEY_SUB_STATUS = "sub_status"
+        private const val KEY_SUB_EXPIRY = "sub_expiry"
+        private const val KEY_SUB_PRODUCT = "sub_product"
     }
 }

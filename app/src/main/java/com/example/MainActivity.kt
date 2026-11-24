@@ -48,19 +48,26 @@ import com.example.ui.components.EditProfileBottomSheet
 import com.example.ui.components.FetchInstagramAccountModal
 import com.example.ui.components.InstagramBottomBar
 import com.example.ui.components.StoryViewerOverlay
+import com.example.ui.screens.AccessGatedScreen
 import com.example.ui.screens.AccountFetcherScreen
 import com.example.ui.screens.AccountInsightsScreen
 import com.example.ui.screens.ChatConversationScreen
 import com.example.ui.screens.CreatorProfileScreen
 import com.example.ui.screens.ExploreScreen
+import com.example.ui.screens.ForgotPasswordScreen
 import com.example.ui.screens.HomeScreen
+import com.example.ui.screens.LoginScreen
 import com.example.ui.screens.PostDetailScreen
 import com.example.ui.screens.ProfessionalDashboardScreen
 import com.example.ui.screens.ProfileScreen
 import com.example.ui.screens.ReelInsightsScreen
 import com.example.ui.screens.ReelsScreen
+import com.example.ui.screens.RegisterScreen
+import com.example.ui.theme.IgBlue
 import com.example.ui.theme.InstagramTheme
 import com.example.ui.theme.MyApplicationTheme
+import com.example.ui.viewmodel.AuthScreenType
+import com.example.ui.viewmodel.AuthUiState
 import com.example.ui.viewmodel.InstagramViewModel
 import com.example.ui.viewmodel.MainTab
 import com.example.ui.viewmodel.OverlayRoute
@@ -72,8 +79,75 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             MyApplicationTheme {
-                InstagramCloneApp()
+                InstagramAppRoot()
             }
+        }
+    }
+}
+
+@Composable
+fun InstagramAppRoot(
+    viewModel: InstagramViewModel = viewModel(),
+) {
+    val authUiState by viewModel.authUiState.collectAsStateWithLifecycle()
+
+    when (val state = authUiState) {
+        is AuthUiState.CheckingSession -> {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(InstagramTheme.colors.background),
+                contentAlignment = Alignment.Center,
+            ) {
+                androidx.compose.material3.CircularProgressIndicator(
+                    color = IgBlue,
+                    strokeWidth = 2.dp,
+                    modifier = Modifier.size(36.dp),
+                )
+            }
+        }
+        is AuthUiState.Unauthenticated -> {
+            when (state.screen) {
+                AuthScreenType.LOGIN -> {
+                    LoginScreen(
+                        isLoading = state.isLoading,
+                        errorMessage = state.errorMessage,
+                        onLoginClick = { id, pass -> viewModel.login(id, pass) },
+                        onNavigateRegister = { viewModel.setAuthScreen(AuthScreenType.REGISTER) },
+                        onNavigateForgotPassword = { viewModel.setAuthScreen(AuthScreenType.FORGOT_PASSWORD) },
+                        onContinueGuestMode = { viewModel.continueGuestMode() },
+                    )
+                }
+                AuthScreenType.REGISTER -> {
+                    RegisterScreen(
+                        isLoading = state.isLoading,
+                        errorMessage = state.errorMessage,
+                        onRegisterClick = { em, un, pass -> viewModel.register(em, un, pass) },
+                        onNavigateLogin = { viewModel.setAuthScreen(AuthScreenType.LOGIN) },
+                    )
+                }
+                AuthScreenType.FORGOT_PASSWORD -> {
+                    ForgotPasswordScreen(
+                        isLoading = state.isLoading,
+                        message = state.infoMessage ?: state.errorMessage,
+                        onSendReset = { em -> viewModel.forgotPassword(em) },
+                        onNavigateBack = { viewModel.setAuthScreen(AuthScreenType.LOGIN) },
+                    )
+                }
+            }
+        }
+        is AuthUiState.AccessGated -> {
+            AccessGatedScreen(
+                accountStatus = state.accessResult.accountStatus,
+                subscriptionStatus = state.accessResult.subscriptionStatus,
+                expiryDate = state.accessResult.expiryDate,
+                message = state.accessResult.message,
+                onLogoutClick = { viewModel.logout() },
+                onRefreshClick = { viewModel.checkInitialSession() },
+            )
+        }
+        is AuthUiState.Authenticated -> {
+            InstagramCloneApp(viewModel = viewModel)
         }
     }
 }
@@ -371,6 +445,7 @@ fun InstagramCloneApp(
             onDismiss = viewModel::dismissFetchModal,
             onSubmitUsername = viewModel::fetchAccountFromApify,
             onInputChanged = viewModel::resetFetchState,
+            onLogoutClick = viewModel::logout,
         )
     }
 
