@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.DefaultSampleData
 import androidx.compose.ui.res.painterResource
 import com.example.R
+import com.example.data.model.MediaPost
 import com.example.data.model.ProfileData
 import com.example.ui.components.AvatarView
 import com.example.ui.components.IgEyeIcon
