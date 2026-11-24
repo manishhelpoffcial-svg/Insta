@@ -5,6 +5,13 @@ import { onInteractionCreate } from './events/interactionCreate.js';
 import { onMessageCreate } from './events/messageCreate.js';
 import { startExpirationScheduler } from './scheduler/expirationCron.js';
 
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[Discord Bot Unhandled Rejection]', reason);
+});
+process.on('uncaughtException', (err) => {
+    console.error('[Discord Bot Uncaught Exception]', err);
+});
+
 validateConfig();
 
 const client = new Client({
