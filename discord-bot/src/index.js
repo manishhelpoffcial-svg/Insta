@@ -1,3 +1,6 @@
+import dns from 'node:dns';
+dns.setDefaultResultOrder('ipv4first');
+
 import { Client, GatewayIntentBits, Partials } from 'discord.js';
 import { CONFIG, validateConfig } from '../config/constants.js';
 import { onReady } from './events/ready.js';
