@@ -82,12 +82,12 @@ fun LoginScreen(
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
 
-    val canSubmit = identifier.isNotBlank() && password.length >= 6 && !isLoading
+    val canSubmit = identifier.isNotBlank() && password.length >= 4 && !isLoading
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(colors.background)
+            .background(Color.Black)
             .statusBarsPadding()
             .navigationBarsPadding()
             .imePadding()
@@ -95,24 +95,63 @@ fun LoginScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
-        Spacer(Modifier.height(40.dp))
+        Spacer(Modifier.height(30.dp))
 
-        // Main Login Container
+        // Main Lock Container
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Instagram Wordmark Logo
-            Text(
-                text = "Instagram",
-                fontFamily = GrandHotelFontFamily,
-                fontSize = 48.sp,
-                color = colors.textPrimary,
+            // App Logo
+            Image(
+                painter = painterResource(R.drawable.ic_instagram_brand_logo),
+                contentDescription = "App Logo",
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(RoundedCornerShape(20.dp)),
             )
 
-            Spacer(Modifier.height(36.dp))
+            Spacer(Modifier.height(20.dp))
+
+            // Lock Icon Badge & Title
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Lock,
+                    contentDescription = "Locked",
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "Application Locked",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                )
+            }
+
+            Spacer(Modifier.height(6.dp))
+
+            Text(
+                text = "Authorized Database Access Only",
+                fontSize = 13.sp,
+                color = Color(0xFFA8A8A8),
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = "Log in with your database account to unlock and access.",
+                fontSize = 12.sp,
+                color = Color(0xFF737373),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+
+            Spacer(Modifier.height(28.dp))
 
             // Error banner if any
             if (!errorMessage.isNullOrBlank()) {
@@ -120,47 +159,57 @@ fun LoginScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 16.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(IgNotifRed.copy(alpha = 0.15f))
-                        .border(1.dp, IgNotifRed.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
-                        .padding(12.dp),
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFF331414))
+                        .border(1.dp, Color(0xFFED4956).copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                        .padding(14.dp),
                 ) {
-                    Text(
-                        text = errorMessage,
-                        color = IgNotifRed,
-                        fontSize = 13.sp,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Outlined.Warning,
+                            contentDescription = "Error",
+                            tint = Color(0xFFED4956),
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            text = errorMessage,
+                            color = Color(0xFFFF6B6B),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
                 }
             }
 
-            // Identifier Input (Username)
+            // Identifier Input (Username / Email)
             OutlinedTextField(
                 value = identifier,
                 onValueChange = { identifier = it },
-                label = { Text("Username", fontSize = 13.sp) },
+                label = { Text("Database Username or Email", fontSize = 13.sp) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = IgDarkHairline,
-                    unfocusedBorderColor = IgDarkHairline.copy(alpha = 0.6f),
-                    focusedContainerColor = colors.surface,
-                    unfocusedContainerColor = colors.surface,
-                    focusedTextColor = colors.textPrimary,
-                    unfocusedTextColor = colors.textPrimary,
+                    focusedBorderColor = Color(0xFF0095F6),
+                    unfocusedBorderColor = Color(0xFF363636),
+                    focusedContainerColor = Color(0xFF121212),
+                    unfocusedContainerColor = Color(0xFF121212),
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
+                    focusedLabelColor = Color(0xFF0095F6),
+                    unfocusedLabelColor = Color(0xFFA8A8A8),
                 ),
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(10.dp),
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(14.dp))
 
             // Password Input
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
-                label = { Text("Password", fontSize = 13.sp) },
+                label = { Text("Database Password", fontSize = 13.sp) },
                 singleLine = true,
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
@@ -170,55 +219,41 @@ fun LoginScreen(
                         Icon(
                             imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
                             contentDescription = if (passwordVisible) "Hide password" else "Show password",
-                            tint = colors.textSecondary,
+                            tint = Color(0xFFA8A8A8),
                             modifier = Modifier.size(20.dp),
                         )
                     }
                 },
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = IgDarkHairline,
-                    unfocusedBorderColor = IgDarkHairline.copy(alpha = 0.6f),
-                    focusedContainerColor = colors.surface,
-                    unfocusedContainerColor = colors.surface,
-                    focusedTextColor = colors.textPrimary,
-                    unfocusedTextColor = colors.textPrimary,
+                    focusedBorderColor = Color(0xFF0095F6),
+                    unfocusedBorderColor = Color(0xFF363636),
+                    focusedContainerColor = Color(0xFF121212),
+                    unfocusedContainerColor = Color(0xFF121212),
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
+                    focusedLabelColor = Color(0xFF0095F6),
+                    unfocusedLabelColor = Color(0xFFA8A8A8),
                 ),
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(10.dp),
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            // Forgot Password link
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp),
-                contentAlignment = Alignment.CenterEnd,
-            ) {
-                Text(
-                    text = "Forgot password?",
-                    color = IgBlue,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.clickable { onNavigateForgotPassword() },
-                )
-            }
+            Spacer(Modifier.height(20.dp))
 
-            Spacer(Modifier.height(8.dp))
-
-            // Log In Button
+            // Unlock Application Button
             Button(
                 onClick = { onLoginClick(identifier, password) },
                 enabled = canSubmit,
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = IgBlue,
-                    disabledContainerColor = IgBlue.copy(alpha = 0.5f),
+                    containerColor = Color(0xFF0095F6),
+                    disabledContainerColor = Color(0xFF0095F6).copy(alpha = 0.4f),
                     contentColor = Color.White,
-                    disabledContentColor = Color.White.copy(alpha = 0.7f),
+                    disabledContentColor = Color.White.copy(alpha = 0.6f),
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(46.dp),
+                    .height(48.dp),
             ) {
                 if (isLoading) {
                     CircularProgressIndicator(
@@ -227,46 +262,37 @@ fun LoginScreen(
                         modifier = Modifier.size(20.dp),
                     )
                 } else {
-                    Text("Log In", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Outlined.Lock,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("Unlock Application", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    }
                 }
-            }
-
-            if (onContinueGuestMode != null) {
-                Spacer(Modifier.height(14.dp))
-                Text(
-                    text = "Continue with Offline Demo",
-                    color = colors.textSecondary,
-                    fontSize = 13.sp,
-                    modifier = Modifier.clickable { onContinueGuestMode() },
-                )
             }
         }
 
         Spacer(Modifier.weight(1f))
 
-        // Bottom Signup Switch
+        // Bottom Admin Notice
         Column(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 20.dp, horizontal = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            HorizontalDivider(thickness = 0.5.dp, color = colors.hairline)
-            Row(
-                modifier = Modifier.padding(vertical = 18.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "Don't have an account? ",
-                    color = colors.textSecondary,
-                    fontSize = 13.sp,
-                )
-                Text(
-                    text = "Sign up.",
-                    color = IgBlue,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.sp,
-                    modifier = Modifier.clickable { onNavigateRegister() },
-                )
-            }
+            HorizontalDivider(thickness = 0.5.dp, color = Color(0xFF262626))
+            Spacer(Modifier.height(14.dp))
+            Text(
+                text = "Accounts are managed via Discord Bot / Admin Panel",
+                color = Color(0xFF737373),
+                fontSize = 11.sp,
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }

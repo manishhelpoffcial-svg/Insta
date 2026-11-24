@@ -115,7 +115,7 @@ fun InstagramAppRoot(
                         onLoginClick = { id, pass -> viewModel.login(id, pass) },
                         onNavigateRegister = { viewModel.setAuthScreen(AuthScreenType.REGISTER) },
                         onNavigateForgotPassword = { viewModel.setAuthScreen(AuthScreenType.FORGOT_PASSWORD) },
-                        onContinueGuestMode = { viewModel.continueGuestMode() },
+                        onContinueGuestMode = null,
                     )
                 }
                 AuthScreenType.REGISTER -> {

@@ -248,15 +248,9 @@ class InstagramViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun continueGuestMode() {
-        _authUiState.value = AuthUiState.Authenticated(
-            AuthSession(
-                userId = "guest_demo",
-                email = "demo@instagram.local",
-                username = "themovietimez",
-                accessToken = "",
-                refreshToken = "",
-                expiresAt = Long.MAX_VALUE
-            )
+        // Guest mode disabled: Authorized database authentication required
+        _authUiState.value = AuthUiState.Unauthenticated(
+            errorMessage = "Access Denied: Authorized database login required."
         )
     }
 

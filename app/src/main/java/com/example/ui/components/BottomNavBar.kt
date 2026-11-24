@@ -67,7 +67,7 @@ fun InstagramBottomBar(
             NavTabItem(
                 selected = activeTab == MainTab.HOME,
                 pillColor = activePillBg,
-                showPillWhenSelected = false,
+                showPillWhenSelected = true,
                 testTag = "nav_home",
                 onClick = { onSelectTab(MainTab.HOME) },
             ) {
