@@ -55,6 +55,7 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import com.example.data.DefaultSampleData
 import androidx.compose.ui.res.painterResource
 import com.example.R
+import com.example.data.model.MediaPost
 import com.example.data.network.ApifyRepository
 import com.example.ui.components.AvatarView
 import com.example.ui.components.DoubleTapHeartOverlay
