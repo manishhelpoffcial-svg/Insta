@@ -548,10 +548,10 @@ class ExampleRobolectricTest {
         assertEquals(1, firstRoute?.initialTab)
         assertEquals(false, vm.isInsightsLoading.value)
 
-        vm.navigateBack()
-        vm.openAccountInsightsFromClick(2)
+        vm.popBackStack()
+        vm.openAccountInsightsFromClick(1)
         val cachedRoute = vm.backStack.value.lastOrNull() as? com.example.ui.viewmodel.OverlayRoute.AccountInsights
-        assertEquals(2, cachedRoute?.initialTab)
+        assertEquals(1, cachedRoute?.initialTab)
         assertEquals(false, vm.isInsightsLoading.value)
 
         var darkThemeIsDark: Boolean? = null
