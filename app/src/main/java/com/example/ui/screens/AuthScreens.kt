@@ -193,8 +193,8 @@ fun LoginScreen(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = IgBlue,
                     unfocusedBorderColor = colors.hairline,
-                    focusedContainerColor = colors.surfaceVariant,
-                    unfocusedContainerColor = colors.surfaceVariant,
+                    focusedContainerColor = colors.surface,
+                    unfocusedContainerColor = colors.surface,
                     focusedTextColor = colors.textPrimary,
                     unfocusedTextColor = colors.textPrimary,
                     focusedLabelColor = IgBlue,
@@ -228,8 +228,8 @@ fun LoginScreen(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = IgBlue,
                     unfocusedBorderColor = colors.hairline,
-                    focusedContainerColor = colors.surfaceVariant,
-                    unfocusedContainerColor = colors.surfaceVariant,
+                    focusedContainerColor = colors.surface,
+                    unfocusedContainerColor = colors.surface,
                     focusedTextColor = colors.textPrimary,
                     unfocusedTextColor = colors.textPrimary,
                     focusedLabelColor = IgBlue,
