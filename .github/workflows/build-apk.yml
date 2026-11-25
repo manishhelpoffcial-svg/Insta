@@ -36,7 +36,9 @@ jobs:
         run: chmod +x gradlew
 
       - name: Run Unit Tests
-        run: ./gradlew testDebugUnitTest --stacktrace
+        env:
+          JAVA_TOOL_OPTIONS: "-Drobolectric.dependency.repo.url=https://maven-central.storage-download.googleapis.com/maven2"
+        run: ./gradlew testDebugUnitTest --no-configuration-cache --stacktrace
 
       - name: Build Debug APK
         run: ./gradlew assembleDebug --stacktrace
