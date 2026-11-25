@@ -14,11 +14,11 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
           cache: 'gradle'
 
       - name: Prepare Environment Variables (.env)
@@ -39,6 +39,13 @@ jobs:
         env:
           JAVA_TOOL_OPTIONS: "-Drobolectric.dependency.repo.url=https://maven-central.storage-download.googleapis.com/maven2"
         run: ./gradlew testDebugUnitTest --no-configuration-cache --stacktrace
+
+      - name: Print Unit Test Results
+        if: always()
+        run: |
+          for f in app/build/test-results/testDebugUnitTest/TEST-*.xml; do
+            [ -f "$f" ] && echo "=== $f ===" && head -n 40 "$f"
+          done
 
       - name: Build Debug APK
         run: ./gradlew assembleDebug --stacktrace
