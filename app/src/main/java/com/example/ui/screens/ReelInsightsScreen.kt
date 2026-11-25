@@ -72,6 +72,10 @@ import com.example.data.model.MediaPost
 import com.example.data.model.ProfileData
 import com.example.data.model.ReelInsights
 import com.example.data.model.SourceShare
+import com.example.data.model.ViewsCurvePresets
+import com.example.data.model.defaultAgeBreakdown
+import com.example.data.model.defaultCountryBreakdown
+import com.example.data.model.defaultGenderBreakdown
 import com.example.data.network.ApifyRepository
 import com.example.ui.components.IgBackIcon
 import com.example.ui.components.IgBookmarkStrokeIcon
@@ -114,8 +118,6 @@ fun ReelInsightsScreen(
     val insights = post.insights
     var selectedTab by remember { mutableIntStateOf(0) } // 0 = Overview, 1 = Engagement, 2 = Audience
     var selectedAudienceFilter by remember { mutableStateOf("Age") } // "Age", "Country", "Gender"
-    var showEditModal by remember { mutableStateOf(false) }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -164,12 +166,12 @@ fun ReelInsightsScreen(
                     )
                 }
                 IconButton(
-                    onClick = { showEditModal = true },
+                    onClick = onToggleEditMode,
                     modifier = Modifier.testTag("insights_more_menu"),
                 ) {
                     IgMoreDotsIcon(
                         size = 22.dp,
-                        tint = if (isEditMode || showEditModal) IgInsightsMagenta else palette.textPrimary,
+                        tint = if (isEditMode) IgInsightsMagenta else palette.textPrimary,
                     )
                 }
             }
@@ -326,12 +328,14 @@ fun ReelInsightsScreen(
 
             when (selectedTab) {
                 0 -> OverviewTabContent(
+                    post = post,
                     insights = insights,
                     palette = palette,
                     isEditMode = isEditMode,
                     onUpdateInsights = onUpdateInsights,
                     onUpdateImpact = onUpdateImpact,
                     onUpdateTopSource = onUpdateTopSource,
+                    onUpdatePostDetails = onUpdatePostDetails,
                 )
                 1 -> EngagementTabContent(
                     post = post,
@@ -359,25 +363,6 @@ fun ReelInsightsScreen(
 
             Spacer(Modifier.height(32.dp))
         }
-    }
-
-    if (showEditModal) {
-        val currentLiker = post.likedByText
-            .removePrefix("Liked by ")
-            .removeSuffix(" and others")
-            .trim()
-            .takeIf { it.isNotBlank() && !it.endsWith("people", ignoreCase = true) && it.firstOrNull()?.isDigit() != true }
-            .orEmpty()
-        ReelInsightsEditModal(
-            insights = insights,
-            audioTitle = post.subtitle,
-            likedByUsername = currentLiker,
-            isInlineEditMode = isEditMode,
-            onToggleInlineEditMode = onToggleEditMode,
-            onDismiss = { showEditModal = false },
-            onSave = { updated -> onUpdateInsights { updated } },
-            onSavePostMetadata = onUpdatePostDetails,
-        )
     }
 }
 
@@ -422,12 +407,14 @@ private fun InsightMiniStat(
 
 @Composable
 private fun OverviewTabContent(
+    post: MediaPost,
     insights: ReelInsights,
     palette: InsightsUiColors,
     isEditMode: Boolean,
     onUpdateInsights: ((ReelInsights) -> ReelInsights) -> Unit,
     onUpdateImpact: (String, String?, String?) -> Unit,
     onUpdateTopSource: (Int, String?, Double?) -> Unit,
+    onUpdatePostDetails: (audioTitle: String, likedByUsername: String) -> Unit,
 ) {
     var viewsSeries by remember { mutableStateOf("All") }
 
@@ -518,29 +505,126 @@ private fun OverviewTabContent(
             }
 
             Spacer(Modifier.height(16.dp))
-        val chartPoints = when (viewsSeries) {
+        val rawChartPoints = when (viewsSeries) {
             "Followers" -> insights.viewsOverTimeFollowers
             "Non-followers" -> insights.viewsOverTimeNonFollowers
             else -> insights.viewsOverTimeAll
         }
-        if (chartPoints.isEmpty()) {
-            Text(
-                text = "N/A",
-                fontSize = 13.5.sp,
-                color = palette.textSecondary,
-                modifier = Modifier.padding(vertical = 8.dp),
-            )
-        } else {
-            val (yMaxLbl, yMidLbl) = formatAxisLabels(insights.viewsYAxisMax, insights.views)
-            ViewsOverTimeLineChart(
-                points = chartPoints,
-                startDate = insights.viewsStartDate,
-                midDate = insights.viewsMidDate,
-                endDate = insights.viewsEndDate,
-                yMaxLabel = yMaxLbl,
-                yMidLabel = yMidLbl,
-                palette = palette,
-            )
+        val chartPoints = remember(rawChartPoints, insights.viewsCurvePreset, viewsSeries) {
+            rawChartPoints.ifEmpty {
+                ViewsCurvePresets.pointsForPreset(insights.viewsCurvePreset, viewsSeries)
+            }
+        }
+        val (yMaxLbl, yMidLbl) = formatAxisLabels(insights.viewsYAxisMax, insights.views)
+        ViewsOverTimeLineChart(
+            points = chartPoints,
+            startDate = insights.viewsStartDate,
+            midDate = insights.viewsMidDate,
+            endDate = insights.viewsEndDate,
+            yMaxLabel = yMaxLbl,
+            yMidLabel = yMidLbl,
+            palette = palette,
+            isEditMode = isEditMode,
+            onUpdatePoint = { idx, newVal ->
+                val updatedList = chartPoints.toMutableList()
+                if (idx in updatedList.indices) {
+                    updatedList[idx] = newVal.coerceIn(0f, 100f)
+                }
+                onUpdateInsights { cur ->
+                    when (viewsSeries) {
+                        "Followers" -> cur.copy(
+                            viewsCurvePreset = ViewsCurvePresets.CUSTOM,
+                            viewsOverTimeFollowers = updatedList,
+                        )
+                        "Non-followers" -> cur.copy(
+                            viewsCurvePreset = ViewsCurvePresets.CUSTOM,
+                            viewsOverTimeNonFollowers = updatedList,
+                        )
+                        else -> cur.copy(
+                            viewsCurvePreset = ViewsCurvePresets.CUSTOM,
+                            viewsOverTimeAll = updatedList,
+                        )
+                    }
+                }
+            },
+        )
+        if (isEditMode) {
+            Spacer(Modifier.height(10.dp))
+            val currentLiker = post.likedByText
+                .removePrefix("Liked by ")
+                .removeSuffix(" and others")
+                .trim()
+                .takeIf { it.isNotBlank() && !it.endsWith("people", ignoreCase = true) && it.firstOrNull()?.isDigit() != true }
+                .orEmpty()
+            var likerDraft by remember(post.id, currentLiker) { mutableStateOf(currentLiker) }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(palette.card)
+                    .border(1.dp, palette.border, RoundedCornerShape(12.dp))
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = "Timing, Axis & Liked By (Inline)",
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = IgInsightsMagenta,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = insights.viewsStartDate,
+                        onValueChange = { d -> onUpdateInsights { it.copy(viewsStartDate = d) } },
+                        label = { Text("Start date", fontSize = 11.sp) },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                    OutlinedTextField(
+                        value = insights.viewsMidDate,
+                        onValueChange = { d -> onUpdateInsights { it.copy(viewsMidDate = d) } },
+                        label = { Text("Mid date", fontSize = 11.sp) },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                    OutlinedTextField(
+                        value = insights.viewsEndDate,
+                        onValueChange = { d -> onUpdateInsights { it.copy(viewsEndDate = d) } },
+                        label = { Text("End date", fontSize = 11.sp) },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = insights.viewsYAxisMax,
+                        onValueChange = { y ->
+                            val clean = y.filter { it.isDigit() || it == ',' }
+                            onUpdateInsights { it.copy(viewsYAxisMax = clean) }
+                        },
+                        label = { Text("Y-axis max", fontSize = 11.sp) },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                    OutlinedTextField(
+                        value = insights.durationLabel,
+                        onValueChange = { d -> onUpdateInsights { it.copy(durationLabel = d) } },
+                        label = { Text("Duration", fontSize = 11.sp) },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                OutlinedTextField(
+                    value = likerDraft,
+                    onValueChange = { next ->
+                        likerDraft = next
+                        onUpdatePostDetails(post.subtitle, next)
+                    },
+                    label = { Text("Who liked this reel (username)", fontSize = 11.sp) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
 
         Spacer(Modifier.height(26.dp))
@@ -1117,7 +1201,7 @@ private fun AudienceTabContent(
         PercentageBarRow(
             label = "Followers",
             percentage = insights.followersViewPercent,
-            barColor = IgInsightsViolet,
+            barColor = IgInsightsMagenta,
             isEditMode = isEditMode,
             labelEditable = false,
             onLabelChange = {},
@@ -1189,18 +1273,47 @@ private fun AudienceTabContent(
             else -> insights.genderBreakdown
         }
 
-        itemsList.forEachIndexed { idx, item ->
-            val barColor = if (selectedFilter == "Gender" && idx == 1) IgInsightsViolet else IgInsightsMagenta
-            PercentageBarRow(
-                label = item.label,
-                percentage = item.percentage,
-                barColor = barColor,
-                isEditMode = isEditMode,
-                labelEditable = true,
-                onLabelChange = { newLabel -> onUpdateDemographic(selectedFilter, idx, newLabel, null) },
-                onPercentChange = { newPct -> onUpdateDemographic(selectedFilter, idx, null, newPct) },
+        if (itemsList.isEmpty()) {
+            Text(
+                text = "Audience $selectedFilter breakdown unavailable from source.",
+                fontSize = 13.5.sp,
+                color = colors.textSecondary,
+                modifier = Modifier.padding(vertical = 8.dp),
             )
-            Spacer(Modifier.height(14.dp))
+            if (isEditMode) {
+                Text(
+                    text = "+ Initialize editable $selectedFilter rows",
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = IgInsightsMagenta,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            onUpdateInsights { cur ->
+                                when (selectedFilter) {
+                                    "Age" -> cur.copy(ageBreakdown = defaultAgeBreakdown())
+                                    "Country" -> cur.copy(countryBreakdown = defaultCountryBreakdown())
+                                    else -> cur.copy(genderBreakdown = defaultGenderBreakdown())
+                                }
+                            }
+                        }
+                        .padding(vertical = 6.dp),
+                )
+            }
+        } else {
+            itemsList.forEachIndexed { idx, item ->
+                val barColor = if (selectedFilter == "Gender" && idx == 1) IgInsightsViolet else IgInsightsMagenta
+                PercentageBarRow(
+                    label = item.label,
+                    percentage = item.percentage,
+                    barColor = barColor,
+                    isEditMode = isEditMode,
+                    labelEditable = isEditMode,
+                    onLabelChange = { newLabel -> onUpdateDemographic(selectedFilter, idx, newLabel, null) },
+                    onPercentChange = { newPct -> onUpdateDemographic(selectedFilter, idx, null, newPct) },
+                )
+                Spacer(Modifier.height(14.dp))
+            }
         }
     }
 }

@@ -895,27 +895,76 @@ class InstagramViewModel(application: Application) : AndroidViewModel(applicatio
             it.shortCode.ifBlank { it.postUrl.ifBlank { it.id } }
         }
         val fetchedKeys = dedupedFetched.map { it.shortCode.ifBlank { it.id } }.toSet()
+
+        var totalViews = 0L
+        var reelsViews = 0L
+        var postsViews = 0L
+        var anyPostHasViews = false
+        var totalLikes = 0L
+        var totalComments = 0L
+        var totalReposts = 0L
+
+        dedupedFetched.forEach { post ->
+            val v = post.insights.views.replace(",", "").trim().toLongOrNull()
+            if (v != null && v >= 0L) {
+                anyPostHasViews = true
+                totalViews += v
+                if (post.isReel) reelsViews += v else postsViews += v
+            }
+            if (!post.likesUnavailable) totalLikes += post.likesCount.coerceAtLeast(0)
+            if (!post.commentsUnavailable) totalComments += post.commentsCount.coerceAtLeast(0)
+            if (!post.repostsUnavailable) totalReposts += post.repostsCount.coerceAtLeast(0)
+        }
+
+        val totalInteractions = totalLikes + totalComments + totalReposts
+        val nf = java.text.NumberFormat.getNumberInstance(java.util.Locale.US)
+        val compactViews = if (anyPostHasViews) ApifyRepository.formatCompactCount(totalViews) else "0"
+        val normalizedProfile = profile.copy(
+            dashboardSubtitle = if (anyPostHasViews) {
+                "$compactViews views in the last 30 days."
+            } else {
+                "Views unavailable in the last 30 days."
+            },
+        )
+
         updateAndPersist { current ->
             // Keep non-own explore/reels posts so Home/Reels/Explore stay rich,
             // while replacing own profile posts with deduplicated fetched posts!
             val externalPosts = current.posts.filter { !it.isOwnPost && it.id !in fetchedKeys }
             val mergedPosts = dedupedFetched + externalPosts
+
+            val updatedAccountInsights = current.accountInsights.copy(
+                timeframeLabel = "30 days",
+                dashboardViews = if (anyPostHasViews) compactViews else "N/A",
+                contentShared = dedupedFetched.size.toString(),
+                overviewViews = if (anyPostHasViews) nf.format(totalViews) else "N/A",
+                interactions = nf.format(totalInteractions),
+                reelsViews = if (anyPostHasViews) ApifyRepository.formatCompactCount(reelsViews) else "N/A",
+                postsViews = if (anyPostHasViews) ApifyRepository.formatCompactCount(postsViews) else "N/A",
+                interactionsReels = nf.format(totalInteractions),
+                interactionsLikes = nf.format(totalLikes),
+                interactionsComments = nf.format(totalComments),
+                interactionsReposts = nf.format(totalReposts),
+                audienceFollowersTotal = normalizedProfile.followersCount,
+            )
+
             current.copy(
-                profile = profile,
+                profile = normalizedProfile,
                 posts = mergedPosts,
+                accountInsights = updatedAccountInsights,
                 stories = current.stories.map { story ->
-                    if (story.isOwnStory) story.copy(avatarUrl = profile.avatarUrl) else story
+                    if (story.isOwnStory) story.copy(avatarUrl = normalizedProfile.avatarUrl) else story
                 },
                 dmThreads = current.dmThreads.map { dm ->
                     if (dm.id == "dm_self") {
                         dm.copy(
-                            username = profile.username,
-                            displayName = profile.username,
-                            avatarUrl = profile.avatarUrl,
+                            username = normalizedProfile.username,
+                            displayName = normalizedProfile.username,
+                            avatarUrl = normalizedProfile.avatarUrl,
                         )
                     } else dm
                 },
-                lastFetchedUsername = profile.username,
+                lastFetchedUsername = normalizedProfile.username,
             )
         }
         selectTab(MainTab.PROFILE)

@@ -409,10 +409,14 @@ class ApifyRepository {
             profileObj?.optString("fullName", ""),
             profileObj?.optString("full_name", ""),
             profileObj?.optString("name", ""),
+            profileObj?.optString("displayName", ""),
+            profileObj?.optString("title", ""),
             firstPost?.optString("ownerFullName", ""),
             firstPostOwner?.optString("fullName", ""),
             firstPostOwner?.optString("full_name", ""),
-        ).ifBlank { "N/A" }
+            items.firstOrNull()?.optString("fullName", ""),
+            items.firstOrNull()?.optString("full_name", ""),
+        ).ifBlank { if (resolvedUsername != "N/A") resolvedUsername else "N/A" }
 
         val resolvedAvatar = firstNonBlank(
             profileObj?.optString("profilePicUrlHD", ""),
@@ -429,7 +433,7 @@ class ApifyRepository {
             profileObj?.optString("biography", ""),
             profileObj?.optString("bio", ""),
             firstPostOwner?.optString("biography", ""),
-        ).ifBlank { "N/A" }
+        )
 
         val externalLinksFromArr = profileObj?.optJSONArray("externalUrls")
             ?.let { arr -> (0 until arr.length()).firstNotNullOfOrNull { idx -> arr.optString(idx).takeIf { it.isNotBlank() } } }
@@ -443,7 +447,7 @@ class ApifyRepository {
             profileObj?.optString("website", ""),
             externalLinksFromArr,
             firstPostOwner?.optString("externalUrl", ""),
-        ).ifBlank { "N/A" }
+        )
 
         val isVerified = readBooleanNullable(profileObj, "verified", "isVerified", "is_verified")
             ?: readBooleanNullable(firstPost, "ownerIsVerified")
@@ -500,9 +504,9 @@ class ApifyRepository {
         }.distinctBy { it.shortCode.ifBlank { it.postUrl.ifBlank { it.id } } }
 
         val dashboardSubtitleText = if (anyPostHasViews) {
-            "${formatCompactCount(totalRealViews)} views across ${mappedPosts.size} fetched posts."
+            "${formatCompactCount(totalRealViews)} views in the last 30 days."
         } else {
-            "N/A views across ${mappedPosts.size} fetched posts."
+            "Views unavailable in the last 30 days."
         }
 
         val profile = ProfileData(
@@ -577,13 +581,15 @@ class ApifyRepository {
             firstChildVideo,
         ).ifBlank { null }
 
-        val rawLikes = readNonNegativeLong(postJson, "likesCount", "likeCount", "likes")
+        val rawLikes = readNonNegativeLong(postJson, "likesCount", "likeCount", "likes", "like_count")
             ?: readNonNegativeLong(postJson.optJSONObject("edge_liked_by"), "count")
+            ?: readNonNegativeLong(postJson.optJSONObject("edge_media_preview_like"), "count")
         val likesAvailable = rawLikes != null
         val likes = rawLikes?.toInt()?.coerceAtLeast(0) ?: 0
 
-        val rawComments = readNonNegativeLong(postJson, "commentsCount", "commentCount", "comments")
+        val rawComments = readNonNegativeLong(postJson, "commentsCount", "commentCount", "comments", "comment_count")
             ?: readNonNegativeLong(postJson.optJSONObject("edge_media_to_comment"), "count")
+            ?: readNonNegativeLong(postJson.optJSONObject("edge_media_preview_comment"), "count")
         val commentsAvailable = rawComments != null
         val comments = rawComments?.toInt()?.coerceAtLeast(0) ?: 0
 
@@ -599,8 +605,25 @@ class ApifyRepository {
         val savesAvailable = rawSaves != null
         val saves = rawSaves?.toInt()?.coerceAtLeast(0) ?: 0
 
-        val playCount = readNonNegativeLong(postJson, "videoPlayCount", "playCount", "playsCount")
-        val viewCount = readNonNegativeLong(postJson, "videoViewCount", "viewCount", "viewsCount", "views")
+        val firstChildPost = childPosts?.optJSONObject(0)
+        val playCount = readNonNegativeLong(
+            postJson,
+            "videoPlayCount",
+            "igPlayCount",
+            "playCount",
+            "playsCount",
+            "video_play_count",
+            "play_count",
+        ) ?: readNonNegativeLong(firstChildPost, "videoPlayCount", "playCount")
+        val viewCount = readNonNegativeLong(
+            postJson,
+            "videoViewCount",
+            "viewCount",
+            "viewsCount",
+            "views",
+            "video_view_count",
+            "view_count",
+        ) ?: readNonNegativeLong(firstChildPost, "videoViewCount", "viewCount")
         val rawViews = when {
             playCount != null && viewCount != null -> max(playCount, viewCount)
             playCount != null -> playCount

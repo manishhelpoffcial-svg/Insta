@@ -56,10 +56,13 @@ import com.example.data.DefaultSampleData
 import androidx.compose.ui.res.painterResource
 import com.example.R
 import com.example.data.model.MediaPost
+import com.example.data.model.StoryItem
 import com.example.data.network.ApifyRepository
 import com.example.ui.components.AvatarView
 import com.example.ui.components.DoubleTapHeartOverlay
 import com.example.ui.components.IgBookmarkStrokeIcon
+import com.example.ui.components.IgCommentBubbleIcon
+import com.example.ui.components.IgEyeIcon
 import com.example.ui.components.IgCommentBubbleIcon
 import com.example.ui.components.IgHeartStrokeIcon
 import com.example.ui.components.IgMoreDotsIcon
@@ -77,6 +80,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun ReelsScreen(
     posts: List<MediaPost>,
+    stories: List<StoryItem> = emptyList(),
     isScreenActive: Boolean = true,
     onLikeClick: (String) -> Unit,
     onDoubleTapLike: (String) -> Unit = onLikeClick,
@@ -130,8 +134,14 @@ fun ReelsScreen(
             ) { pageIndex ->
                 val reel = reels[pageIndex]
                 val isCurrentPage = isScreenActive && pagerState.currentPage == pageIndex
+                val authorHasStory = stories.any {
+                    it.username.equals(reel.authorUsername, ignoreCase = true) &&
+                        it.hasActiveRing &&
+                        (it.storyImageKey.isNotBlank() || it.storyCaption.isNotBlank())
+                }
                 ReelPage(
                     post = reel,
+                    hasAuthorActiveStory = authorHasStory,
                     isActive = isCurrentPage,
                     onLikeClick = { onLikeClick(reel.id) },
                     onDoubleTapLike = { onDoubleTapLike(reel.id) },
@@ -209,6 +219,7 @@ fun ReelsScreen(
 @Composable
 private fun ReelPage(
     post: MediaPost,
+    hasAuthorActiveStory: Boolean = false,
     isActive: Boolean,
     onLikeClick: () -> Unit,
     onDoubleTapLike: () -> Unit,
@@ -362,7 +373,7 @@ private fun ReelPage(
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             ReelActionStat(
-                countText = ApifyRepository.formatCompactCount(post.likesCount.toLong()),
+                countText = if (post.likesUnavailable) "" else ApifyRepository.formatCompactCount(post.likesCount.toLong()),
                 onClick = onLikeClick,
             ) {
                 IgHeartStrokeIcon(
@@ -373,7 +384,7 @@ private fun ReelPage(
             }
 
             ReelActionStat(
-                countText = ApifyRepository.formatCompactCount(post.commentsCount.toLong()),
+                countText = if (post.commentsUnavailable) "" else ApifyRepository.formatCompactCount(post.commentsCount.toLong()),
                 onClick = onCommentClick,
             ) {
                 IgCommentBubbleIcon(
@@ -383,7 +394,7 @@ private fun ReelPage(
             }
 
             ReelActionStat(
-                countText = ApifyRepository.formatCompactCount(post.repostsCount.toLong()),
+                countText = if (post.repostsUnavailable) "" else ApifyRepository.formatCompactCount(post.repostsCount.toLong()),
                 onClick = onRepostClick,
             ) {
                 IgRepostLoopIcon(
@@ -393,7 +404,7 @@ private fun ReelPage(
             }
 
             ReelActionStat(
-                countText = ApifyRepository.formatCompactCount(post.sharesCount.toLong()),
+                countText = if (post.sharesUnavailable) "" else ApifyRepository.formatCompactCount(post.sharesCount.toLong()),
                 onClick = onCommentClick,
             ) {
                 IgSharePlaneIcon(
@@ -404,7 +415,7 @@ private fun ReelPage(
             }
 
             ReelActionStat(
-                countText = ApifyRepository.formatCompactCount(post.savesCount.toLong()),
+                countText = if (post.savesUnavailable) "" else ApifyRepository.formatCompactCount(post.savesCount.toLong()),
                 onClick = onSaveClick,
             ) {
                 IgBookmarkStrokeIcon(
@@ -460,7 +471,7 @@ private fun ReelPage(
                         avatarUrl = post.authorAvatarUrl,
                         avatarKey = post.authorAvatarKey,
                         size = 36.dp,
-                        showGradientRing = true,
+                        showGradientRing = hasAuthorActiveStory,
                         ringStrokeWidth = 2.dp,
                     )
                     Spacer(Modifier.width(10.dp))
@@ -491,13 +502,44 @@ private fun ReelPage(
             }
 
             Spacer(Modifier.height(10.dp))
-            Text(
-                text = post.caption.ifBlank { "Watch till the end 🎬" },
-                color = Color.White,
-                style = IgTypography.postCaption,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
+            val displayCaption = post.caption.takeIf { it.isNotBlank() && !it.equals("N/A", ignoreCase = true) }
+            if (displayCaption != null) {
+                Text(
+                    text = displayCaption,
+                    color = Color.White,
+                    style = IgTypography.postCaption,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            val hasViews = post.viewsDisplay.isNotBlank() && !post.viewsDisplay.equals("N/A", ignoreCase = true)
+            val hasDate = post.dateLabel.isNotBlank() && !post.dateLabel.equals("N/A", ignoreCase = true)
+            if (hasViews || hasDate) {
+                Spacer(Modifier.height(6.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    if (hasViews) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IgEyeIcon(tint = Color.White.copy(alpha = 0.9f), size = 13.dp)
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = "${post.viewsDisplay} views",
+                                color = Color.White.copy(alpha = 0.9f),
+                                style = IgTypography.secondaryMeta,
+                            )
+                        }
+                    }
+                    if (hasDate) {
+                        Text(
+                            text = if (hasViews) "· ${post.dateLabel}" else post.dateLabel,
+                            color = Color.White.copy(alpha = 0.85f),
+                            style = IgTypography.secondaryMeta,
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -516,11 +558,13 @@ private fun ReelActionStat(
             .padding(horizontal = 4.dp, vertical = 2.dp),
     ) {
         icon()
-        Spacer(Modifier.height(3.dp))
-        Text(
-            text = countText,
-            color = Color.White,
-            style = IgTypography.navLabel,
-        )
+        if (countText.isNotBlank()) {
+            Spacer(Modifier.height(3.dp))
+            Text(
+                text = countText,
+                color = Color.White,
+                style = IgTypography.navLabel,
+            )
+        }
     }
 }

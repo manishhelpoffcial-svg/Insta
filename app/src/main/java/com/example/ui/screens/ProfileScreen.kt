@@ -252,58 +252,46 @@ fun ProfileScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),
                 ) {
-                    if (profile.bio.isNotBlank()) {
+                    if (profile.bio.isNotBlank() && !profile.bio.equals("N/A", ignoreCase = true)) {
                         Text(
                             text = profile.bio,
                             style = IgTypography.postCaption,
-                            color = if (profile.bio == "N/A") colors.textSecondary else colors.textPrimary,
+                            color = colors.textPrimary,
                         )
                     }
 
-                    if (profile.externalUrl.isNotBlank()) {
+                    val cleanExternalUrl = profile.externalUrl.trim()
+                    if (cleanExternalUrl.isNotBlank() && !cleanExternalUrl.equals("N/A", ignoreCase = true)) {
                         Spacer(Modifier.height(4.dp))
-                        val isRealLink = !profile.externalUrl.equals("N/A", ignoreCase = true)
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = if (isRealLink) {
-                                Modifier.clickable {
-                                    runCatching {
-                                        val normalizedUrl = if (profile.externalUrl.startsWith("http", ignoreCase = true)) {
-                                            profile.externalUrl
-                                        } else {
-                                            "https://${profile.externalUrl}"
-                                        }
-                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(normalizedUrl)))
+                            modifier = Modifier.clickable {
+                                runCatching {
+                                    val normalizedUrl = if (cleanExternalUrl.startsWith("http", ignoreCase = true)) {
+                                        cleanExternalUrl
+                                    } else {
+                                        "https://$cleanExternalUrl"
                                     }
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(normalizedUrl)))
                                 }
-                            } else Modifier,
+                            },
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.Link,
                                 contentDescription = "External link",
-                                tint = if (isRealLink) IgLinkBlue else colors.textSecondary,
+                                tint = IgLinkBlue,
                                 modifier = Modifier.size(15.dp),
                             )
                             Spacer(Modifier.width(5.dp))
                             Text(
-                                text = profile.externalUrl,
+                                text = cleanExternalUrl,
                                 fontSize = 13.5.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = if (isRealLink) IgLinkBlue else colors.textSecondary,
+                                color = IgLinkBlue,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
                         }
-                    }
-
-                    if (profile.privacyStatus.isNotBlank()) {
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            text = "Account status: ${profile.privacyStatus}",
-                            fontSize = 12.sp,
-                            color = colors.textSecondary,
-                            modifier = Modifier.testTag("profile_privacy_status"),
-                        )
                     }
 
                     Spacer(Modifier.height(10.dp))

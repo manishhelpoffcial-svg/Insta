@@ -75,7 +75,7 @@ fun ProfessionalDashboardScreen(
 ) {
     BackHandler(onBack = onBack)
     val palette = rememberInsightsPalette()
-    var showEditModal by remember { mutableStateOf(false) }
+    var isEditMode by remember { mutableStateOf(false) }
     var activeToolDialog by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     Column(
@@ -113,14 +113,42 @@ fun ProfessionalDashboardScreen(
             }
 
             IconButton(
-                onClick = { showEditModal = true },
+                onClick = { isEditMode = !isEditMode },
                 modifier = Modifier.testTag("dashboard_settings_button"),
             ) {
                 Icon(
                     imageVector = Icons.Outlined.Settings,
-                    contentDescription = "Dashboard settings",
-                    tint = palette.textPrimary,
+                    contentDescription = if (isEditMode) "Done editing" else "Edit dashboard insights",
+                    tint = if (isEditMode) com.example.ui.theme.IgInsightsMagenta else palette.textPrimary,
                     modifier = Modifier.size(24.dp),
+                )
+            }
+        }
+
+        if (isEditMode) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(com.example.ui.theme.IgInsightsMagenta.copy(alpha = 0.14f))
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = "Inline Edit Mode · Tap values to edit",
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = com.example.ui.theme.IgInsightsMagenta,
+                )
+                Text(
+                    text = "Done",
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = com.example.ui.theme.IgInsightsMagenta,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { isEditMode = false }
+                        .padding(horizontal = 8.dp, vertical = 2.dp),
                 )
             }
         }
@@ -144,15 +172,31 @@ fun ProfessionalDashboardScreen(
                     style = IgTypography.insightsSectionHeading,
                     color = palette.textPrimary,
                 )
-                Text(
-                    text = accountInsights.dateRange,
-                    style = IgTypography.secondaryMeta,
-                    color = palette.textSecondary,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .clickable { showEditModal = true }
-                        .padding(horizontal = 4.dp, vertical = 2.dp),
-                )
+                if (isEditMode) {
+                    androidx.compose.foundation.text.BasicTextField(
+                        value = accountInsights.dateRange,
+                        onValueChange = { next ->
+                            onUpdateAccountInsights(accountInsights.copy(dateRange = next))
+                        },
+                        singleLine = true,
+                        textStyle = IgTypography.secondaryMeta.copy(
+                            color = palette.textPrimary,
+                            fontWeight = FontWeight.Medium,
+                        ),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(palette.card)
+                            .border(1.dp, com.example.ui.theme.IgInsightsMagenta.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                    )
+                } else {
+                    Text(
+                        text = accountInsights.dateRange,
+                        style = IgTypography.secondaryMeta,
+                        color = palette.textSecondary,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                    )
+                }
             }
 
             Spacer(Modifier.height(10.dp))
@@ -161,6 +205,10 @@ fun ProfessionalDashboardScreen(
                 label = "Views",
                 value = accountInsights.dashboardViews,
                 palette = palette,
+                isEditMode = isEditMode,
+                onValueChange = { next ->
+                    onUpdateAccountInsights(accountInsights.copy(dashboardViews = next))
+                },
                 modifier = Modifier.testTag("dashboard_row_views"),
                 onClick = { onOpenInsightsTab(0) },
             )
@@ -168,6 +216,11 @@ fun ProfessionalDashboardScreen(
                 label = "New followers",
                 value = accountInsights.newFollowers,
                 palette = palette,
+                isEditMode = isEditMode,
+                onValueChange = { next ->
+                    val cleaned = next.filter { it.isDigit() || it == ',' }
+                    onUpdateAccountInsights(accountInsights.copy(newFollowers = cleaned))
+                },
                 modifier = Modifier.testTag("dashboard_row_followers"),
                 onClick = { onOpenInsightsTab(2) },
             )
@@ -175,6 +228,11 @@ fun ProfessionalDashboardScreen(
                 label = "Content you shared",
                 value = accountInsights.contentShared,
                 palette = palette,
+                isEditMode = isEditMode,
+                onValueChange = { next ->
+                    val cleaned = next.filter { it.isDigit() || it == ',' }
+                    onUpdateAccountInsights(accountInsights.copy(contentShared = cleaned))
+                },
                 modifier = Modifier.testTag("dashboard_row_content"),
                 onClick = { onOpenInsightsTab(1) },
             )
@@ -387,14 +445,6 @@ fun ProfessionalDashboardScreen(
         }
     }
 
-    if (showEditModal) {
-        AccountInsightsEditModal(
-            accountInsights = accountInsights,
-            onDismiss = { showEditModal = false },
-            onSave = onUpdateAccountInsights,
-        )
-    }
-
     activeToolDialog?.let { (title, message) ->
         AlertDialog(
             onDismissRequest = { activeToolDialog = null },
@@ -418,6 +468,8 @@ private fun DashboardMetricRow(
     value: String,
     palette: com.example.ui.components.InsightsUiColors,
     modifier: Modifier = Modifier,
+    isEditMode: Boolean = false,
+    onValueChange: ((String) -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     Row(
@@ -425,7 +477,7 @@ private fun DashboardMetricRow(
             .fillMaxWidth()
             .height(48.dp)
             .clip(RoundedCornerShape(10.dp))
-            .clickable(onClick = onClick)
+            .clickable(enabled = !isEditMode, onClick = onClick)
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -435,11 +487,29 @@ private fun DashboardMetricRow(
             color = palette.textPrimary,
             modifier = Modifier.weight(1f),
         )
-        Text(
-            text = value,
-            style = IgTypography.usernameMedium.copy(fontFeatureSettings = "tnum"),
-            color = palette.textSecondary,
-        )
+        if (isEditMode && onValueChange != null) {
+            androidx.compose.foundation.text.BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                singleLine = true,
+                textStyle = IgTypography.usernameMedium.copy(
+                    color = palette.textPrimary,
+                    fontFeatureSettings = "tnum",
+                ),
+                modifier = Modifier
+                    .width(96.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(palette.card)
+                    .border(1.dp, com.example.ui.theme.IgInsightsMagenta.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+        } else {
+            Text(
+                text = value,
+                style = IgTypography.usernameMedium.copy(fontFeatureSettings = "tnum"),
+                color = palette.textSecondary,
+            )
+        }
         Spacer(Modifier.width(8.dp))
         Icon(
             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,

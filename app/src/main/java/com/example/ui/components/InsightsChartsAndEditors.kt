@@ -11,6 +11,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,7 +26,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -41,6 +44,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -53,9 +57,11 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -244,7 +250,12 @@ fun ViewsOverTimeLineChart(
     yMidLabel: String,
     palette: InsightsUiColors,
     modifier: Modifier = Modifier,
+    isEditMode: Boolean = false,
+    onUpdatePoint: ((Int, Float) -> Unit)? = null,
 ) {
+    var selectedIdx by remember(points.size, isEditMode) { mutableIntStateOf(0) }
+    val safeSelected = selectedIdx.coerceIn(0, (points.size - 1).coerceAtLeast(0))
+
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -282,7 +293,24 @@ fun ViewsOverTimeLineChart(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .padding(vertical = 7.dp),
+                    .padding(vertical = 7.dp)
+                    .then(
+                        if (isEditMode && points.isNotEmpty()) {
+                            Modifier.pointerInput(points.size, isEditMode) {
+                                detectTapGestures { tap ->
+                                    if (points.size == 1) {
+                                        selectedIdx = 0
+                                    } else {
+                                        val w = size.width.toFloat().coerceAtLeast(1f)
+                                        val nearest = ((tap.x / w) * (points.size - 1))
+                                            .roundToInt()
+                                            .coerceIn(0, points.lastIndex)
+                                        selectedIdx = nearest
+                                    }
+                                }
+                            }
+                        } else Modifier
+                    ),
             ) {
                 val w = size.width
                 val h = size.height
@@ -296,28 +324,42 @@ fun ViewsOverTimeLineChart(
                 }
 
                 if (points.size >= 2) {
-                    val path = Path()
                     val coords = points.mapIndexed { idx, value ->
                         val x = w * (idx.toFloat() / (points.size - 1))
                         val y = h * (1f - (value / 100f).coerceIn(0f, 1f))
                         Offset(x, y)
                     }
-                    path.moveTo(coords.first().x, coords.first().y)
-                    for (i in 0 until coords.lastIndex) {
-                        val p0 = coords[i]
-                        val p1 = coords[i + 1]
-                        val cx = (p0.x + p1.x) / 2f
-                        path.cubicTo(cx, p0.y, cx, p1.y, p1.x, p1.y)
+                    val path = Path().apply {
+                        coords.forEachIndexed { idx, pt ->
+                            if (idx == 0) moveTo(pt.x, pt.y) else lineTo(pt.x, pt.y)
+                        }
                     }
                     drawPath(
                         path = path,
                         color = IgInsightsMagenta,
                         style = Stroke(
-                            width = 3.5.dp.toPx(),
+                            width = 3.2.dp.toPx(),
                             cap = StrokeCap.Round,
-                            join = StrokeJoin.Round,
+                            join = StrokeJoin.Miter,
                         ),
                     )
+                    if (isEditMode) {
+                        coords.forEachIndexed { idx, pt ->
+                            val isSel = idx == safeSelected
+                            if (isSel) {
+                                drawCircle(
+                                    color = palette.bg,
+                                    radius = 7.5.dp.toPx(),
+                                    center = pt,
+                                )
+                            }
+                            drawCircle(
+                                color = if (isSel) IgInsightsViolet else IgInsightsMagenta,
+                                radius = if (isSel) 5.5.dp.toPx() else 3.8.dp.toPx(),
+                                center = pt,
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -332,6 +374,121 @@ fun ViewsOverTimeLineChart(
             Text(midDate, color = palette.axisText, fontSize = 11.5.sp)
             Text(endDate, color = palette.axisText, fontSize = 11.5.sp)
         }
+
+        if (isEditMode && onUpdatePoint != null && points.isNotEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            InlineChartPointEditor(
+                points = points,
+                selectedIdx = safeSelected,
+                onSelectIdx = { selectedIdx = it },
+                onUpdatePoint = onUpdatePoint,
+                palette = palette,
+            )
+        }
+    }
+}
+
+@Composable
+fun InlineChartPointEditor(
+    points: List<Float>,
+    selectedIdx: Int,
+    onSelectIdx: (Int) -> Unit,
+    onUpdatePoint: (Int, Float) -> Unit,
+    palette: InsightsUiColors,
+    minVal: Float = 0f,
+    maxVal: Float = 100f,
+) {
+    val safeIdx = selectedIdx.coerceIn(0, (points.size - 1).coerceAtLeast(0))
+    val currentVal = points.getOrElse(safeIdx) { 0f }
+    var draftText by remember(safeIdx, currentVal) {
+        mutableStateOf(currentVal.roundToInt().toString())
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(palette.card)
+            .border(1.dp, palette.border, RoundedCornerShape(12.dp))
+            .padding(12.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Day ${safeIdx + 1} point value",
+                fontSize = 12.5.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = palette.textPrimary,
+            )
+            Box(
+                modifier = Modifier
+                    .width(64.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(palette.bg)
+                    .border(1.dp, IgInsightsMagenta.copy(alpha = 0.6f), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+            ) {
+                BasicTextField(
+                    value = draftText,
+                    onValueChange = { raw ->
+                        val cleaned = raw.filter { it.isDigit() || it == '-' || it == '.' }
+                        draftText = cleaned
+                        cleaned.toFloatOrNull()?.let { parsed ->
+                            onUpdatePoint(safeIdx, parsed.coerceIn(minVal, maxVal))
+                        }
+                    },
+                    singleLine = true,
+                    cursorBrush = SolidColor(IgInsightsMagenta),
+                    textStyle = TextStyle(
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = palette.textPrimary,
+                        textAlign = TextAlign.End,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            points.indices.forEach { idx ->
+                val active = idx == safeIdx
+                Box(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(if (active) IgInsightsMagenta else palette.bg)
+                        .border(1.dp, if (active) IgInsightsMagenta else palette.border, CircleShape)
+                        .clickable { onSelectIdx(idx) }
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                ) {
+                    Text(
+                        text = "D${idx + 1}",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (active) Color.White else palette.textPrimary,
+                    )
+                }
+            }
+        }
+        Slider(
+            value = currentVal.coerceIn(minVal, maxVal),
+            onValueChange = { v ->
+                draftText = v.roundToInt().toString()
+                onUpdatePoint(safeIdx, v)
+            },
+            valueRange = minVal..maxVal,
+            colors = SliderDefaults.colors(
+                thumbColor = IgInsightsMagenta,
+                activeTrackColor = IgInsightsMagenta,
+            ),
+            modifier = Modifier.height(30.dp),
+        )
     }
 }
 
@@ -346,7 +503,12 @@ fun AccountOverviewLineChart(
     bottomLabel: String,
     palette: InsightsUiColors,
     modifier: Modifier = Modifier,
+    isEditMode: Boolean = false,
+    onUpdatePoint: ((Int, Float) -> Unit)? = null,
 ) {
+    var selectedIdx by remember(points.size, isEditMode) { mutableIntStateOf(0) }
+    val safeSelected = selectedIdx.coerceIn(0, (points.size - 1).coerceAtLeast(0))
+
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -368,7 +530,21 @@ fun AccountOverviewLineChart(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .padding(vertical = 7.dp),
+                    .padding(vertical = 7.dp)
+                    .then(
+                        if (isEditMode && points.isNotEmpty()) {
+                            Modifier.pointerInput(points.size, isEditMode) {
+                                detectTapGestures { tap ->
+                                    if (points.size > 1) {
+                                        val w = size.width.toFloat().coerceAtLeast(1f)
+                                        selectedIdx = ((tap.x / w) * (points.size - 1))
+                                            .roundToInt()
+                                            .coerceIn(0, points.lastIndex)
+                                    }
+                                }
+                            }
+                        } else Modifier
+                    ),
             ) {
                 val w = size.width
                 val h = size.height
@@ -381,17 +557,33 @@ fun AccountOverviewLineChart(
                     )
                 }
                 if (points.size >= 2) {
-                    val path = Path()
-                    points.forEachIndexed { idx, value ->
+                    val coords = points.mapIndexed { idx, value ->
                         val x = w * (idx.toFloat() / (points.size - 1))
                         val y = h * (1f - (value / 100f).coerceIn(0f, 1f))
-                        if (idx == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                        Offset(x, y)
+                    }
+                    val path = Path()
+                    coords.forEachIndexed { idx, pt ->
+                        if (idx == 0) path.moveTo(pt.x, pt.y) else path.lineTo(pt.x, pt.y)
                     }
                     drawPath(
                         path = path,
                         color = IgInsightsMagenta,
-                        style = Stroke(width = 2.4.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
+                        style = Stroke(width = 2.6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Miter),
                     )
+                    if (isEditMode) {
+                        coords.forEachIndexed { idx, pt ->
+                            val isSel = idx == safeSelected
+                            if (isSel) {
+                                drawCircle(color = palette.bg, radius = 6.8.dp.toPx(), center = pt)
+                            }
+                            drawCircle(
+                                color = if (isSel) IgInsightsViolet else IgInsightsMagenta,
+                                radius = if (isSel) 5.dp.toPx() else 3.2.dp.toPx(),
+                                center = pt,
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -405,6 +597,16 @@ fun AccountOverviewLineChart(
             Text(startDate, color = palette.axisText, fontSize = 11.5.sp)
             Text(midDate, color = palette.axisText, fontSize = 11.5.sp)
             Text(endDate, color = palette.axisText, fontSize = 11.5.sp)
+        }
+        if (isEditMode && onUpdatePoint != null && points.isNotEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            InlineChartPointEditor(
+                points = points,
+                selectedIdx = safeSelected,
+                onSelectIdx = { selectedIdx = it },
+                onUpdatePoint = onUpdatePoint,
+                palette = palette,
+            )
         }
     }
 }

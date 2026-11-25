@@ -27,6 +27,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.AccountCircle
@@ -50,6 +51,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -103,7 +105,7 @@ fun AccountInsightsScreen(
     var selectedTab by remember(initialTab) { mutableIntStateOf(initialTab.coerceIn(0, 2)) }
     var contentFilter by remember { mutableStateOf("All content") }
     var timeframeFilter by remember { mutableStateOf(accountInsights.timeframeLabel) }
-    var showEditModal by remember { mutableStateOf(false) }
+    var isEditMode by remember { mutableStateOf(false) }
     var infoDialogTitle by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     val ownPosts = remember(posts) {
@@ -174,14 +176,42 @@ fun AccountInsightsScreen(
                     )
                 }
                 IconButton(
-                    onClick = { showEditModal = true },
+                    onClick = { isEditMode = !isEditMode },
                     modifier = Modifier.testTag("account_insights_edit_button"),
                 ) {
                     IgMoreDotsIcon(
                         size = 22.dp,
-                        tint = palette.textPrimary,
+                        tint = if (isEditMode) IgInsightsMagenta else palette.textPrimary,
                     )
                 }
+            }
+        }
+
+        if (isEditMode) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(IgInsightsMagenta.copy(alpha = 0.14f))
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = "Edit Mode · Tap values, dots, or countries",
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = IgInsightsMagenta,
+                )
+                Text(
+                    text = "Done",
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = IgInsightsMagenta,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { isEditMode = false }
+                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                )
             }
         }
 
@@ -220,6 +250,7 @@ fun AccountInsightsScreen(
                 ownPosts = ownPosts,
                 contentFilter = contentFilter,
                 timeframeFilter = timeframeFilter,
+                isEditMode = isEditMode,
                 palette = palette,
                 onCycleContentFilter = {
                     contentFilter = when (contentFilter) {
@@ -235,6 +266,7 @@ fun AccountInsightsScreen(
                         else -> "30 days"
                     }
                 },
+                onUpdateAccountInsights = onUpdateAccountInsights,
                 onSeeAllContent = { selectedTab = 1 },
                 onOpenReelInsights = onOpenReelInsights,
                 onShowInfo = { title, desc -> infoDialogTitle = title to desc },
@@ -265,6 +297,7 @@ fun AccountInsightsScreen(
             else -> AccountAudienceTab(
                 accountInsights = accountInsights,
                 timeframeFilter = timeframeFilter,
+                isEditMode = isEditMode,
                 palette = palette,
                 onCycleTimeframe = {
                     timeframeFilter = when (timeframeFilter) {
@@ -273,17 +306,10 @@ fun AccountInsightsScreen(
                         else -> "30 days"
                     }
                 },
+                onUpdateAccountInsights = onUpdateAccountInsights,
                 onShowInfo = { title, desc -> infoDialogTitle = title to desc },
             )
         }
-    }
-
-    if (showEditModal) {
-        AccountInsightsEditModal(
-            accountInsights = accountInsights,
-            onDismiss = { showEditModal = false },
-            onSave = onUpdateAccountInsights,
-        )
     }
 
     infoDialogTitle?.let { (title, message) ->
@@ -309,9 +335,11 @@ private fun AccountOverviewTab(
     ownPosts: List<MediaPost>,
     contentFilter: String,
     timeframeFilter: String,
+    isEditMode: Boolean,
     palette: InsightsUiColors,
     onCycleContentFilter: () -> Unit,
     onCycleTimeframe: () -> Unit,
+    onUpdateAccountInsights: (AccountInsightsData) -> Unit,
     onSeeAllContent: () -> Unit,
     onOpenReelInsights: (String) -> Unit,
     onShowInfo: (String, String) -> Unit,
@@ -353,6 +381,11 @@ private fun AccountOverviewTab(
                     label = "Views",
                     value = accountInsights.overviewViews,
                     selected = selectedMetricIdx == 0,
+                    isEditMode = isEditMode,
+                    onValueChange = { next ->
+                        val cleaned = next.filter { it.isDigit() || it == ',' }
+                        onUpdateAccountInsights(accountInsights.copy(overviewViews = cleaned))
+                    },
                     palette = palette,
                     modifier = Modifier.testTag("overview_card_views"),
                     onClick = { selectedMetricIdx = 0 },
@@ -361,6 +394,10 @@ private fun AccountOverviewTab(
                     label = "Net followers",
                     value = accountInsights.netFollowers,
                     selected = selectedMetricIdx == 1,
+                    isEditMode = isEditMode,
+                    onValueChange = { next ->
+                        onUpdateAccountInsights(accountInsights.copy(netFollowers = next))
+                    },
                     palette = palette,
                     modifier = Modifier.testTag("overview_card_followers"),
                     onClick = { selectedMetricIdx = 1 },
@@ -369,6 +406,11 @@ private fun AccountOverviewTab(
                     label = "Interactions",
                     value = accountInsights.interactions,
                     selected = selectedMetricIdx == 2,
+                    isEditMode = isEditMode,
+                    onValueChange = { next ->
+                        val cleaned = next.filter { it.isDigit() || it == ',' }
+                        onUpdateAccountInsights(accountInsights.copy(interactions = cleaned))
+                    },
                     palette = palette,
                     modifier = Modifier.testTag("overview_card_interactions"),
                     onClick = { selectedMetricIdx = 2 },
@@ -418,6 +460,16 @@ private fun AccountOverviewTab(
                     midLabel = midLbl,
                     bottomLabel = botLbl,
                     palette = palette,
+                    isEditMode = isEditMode,
+                    onUpdatePoint = { idx, newVal ->
+                        val updated = points.toMutableList()
+                        if (idx in updated.indices) updated[idx] = newVal.coerceIn(0f, 100f)
+                        when (selectedMetricIdx) {
+                            0 -> onUpdateAccountInsights(accountInsights.copy(overviewViewsCurve = updated))
+                            1 -> onUpdateAccountInsights(accountInsights.copy(overviewFollowersCurve = updated))
+                            else -> onUpdateAccountInsights(accountInsights.copy(overviewInteractionsCurve = updated))
+                        }
+                    },
                 )
             }
         }
@@ -623,9 +675,36 @@ private fun AccountOverviewTab(
                     onShowInfo("Profile activity", "Actions people take when visiting @your profile, including visits, bio links, and address taps.")
                 }
                 Spacer(Modifier.height(12.dp))
-                ProfileActivityRow(Icons.Outlined.AccountCircle, "Profile visits", accountInsights.profileVisits, palette)
-                ProfileActivityRow(Icons.Outlined.Link, "Bio link taps", accountInsights.bioLinkTaps, palette)
-                ProfileActivityRow(Icons.Outlined.LocationOn, "Business address taps", accountInsights.businessAddressTaps, palette)
+                ProfileActivityRow(
+                    icon = Icons.Outlined.AccountCircle,
+                    label = "Profile visits",
+                    value = accountInsights.profileVisits,
+                    palette = palette,
+                    isEditMode = isEditMode,
+                    onValueChange = { next ->
+                        onUpdateAccountInsights(accountInsights.copy(profileVisits = next.filter { it.isDigit() || it == ',' }))
+                    },
+                )
+                ProfileActivityRow(
+                    icon = Icons.Outlined.Link,
+                    label = "Bio link taps",
+                    value = accountInsights.bioLinkTaps,
+                    palette = palette,
+                    isEditMode = isEditMode,
+                    onValueChange = { next ->
+                        onUpdateAccountInsights(accountInsights.copy(bioLinkTaps = next.filter { it.isDigit() || it == ',' }))
+                    },
+                )
+                ProfileActivityRow(
+                    icon = Icons.Outlined.LocationOn,
+                    label = "Business address taps",
+                    value = accountInsights.businessAddressTaps,
+                    palette = palette,
+                    isEditMode = isEditMode,
+                    onValueChange = { next ->
+                        onUpdateAccountInsights(accountInsights.copy(businessAddressTaps = next.filter { it.isDigit() || it == ',' }))
+                    },
+                )
             }
         }
     }
@@ -813,8 +892,10 @@ private fun AccountContentTab(
 private fun AccountAudienceTab(
     accountInsights: AccountInsightsData,
     timeframeFilter: String,
+    isEditMode: Boolean,
     palette: InsightsUiColors,
     onCycleTimeframe: () -> Unit,
+    onUpdateAccountInsights: (AccountInsightsData) -> Unit,
     onShowInfo: (String, String) -> Unit,
 ) {
     var growthFilter by remember { mutableStateOf("Overall") }
@@ -963,12 +1044,32 @@ private fun AccountAudienceTab(
                 }
                 Spacer(Modifier.height(14.dp))
                 val locList = if (locationFilter == "Countries") accountInsights.topCountries else accountInsights.topCities
-                locList.forEach { loc ->
+                locList.forEachIndexed { idx, loc ->
                     SimpleAudienceBarRow(
                         label = loc.label,
                         pct = loc.percentage,
                         barColor = IgInsightsMagenta,
                         palette = palette,
+                        isEditMode = isEditMode,
+                        onLabelChange = { newLabel ->
+                            val updated = locList.mapIndexed { i, item ->
+                                if (i == idx) item.copy(label = newLabel) else item
+                            }
+                            onUpdateAccountInsights(
+                                if (locationFilter == "Countries") accountInsights.copy(topCountries = updated)
+                                else accountInsights.copy(topCities = updated)
+                            )
+                        },
+                        onPctChange = { newPct ->
+                            val clamped = newPct.coerceIn(0.0, 100.0)
+                            val updated = locList.mapIndexed { i, item ->
+                                if (i == idx) item.copy(percentage = clamped) else item
+                            }
+                            onUpdateAccountInsights(
+                                if (locationFilter == "Countries") accountInsights.copy(topCountries = updated)
+                                else accountInsights.copy(topCities = updated)
+                            )
+                        },
                     )
                     Spacer(Modifier.height(12.dp))
                 }
@@ -1065,6 +1166,8 @@ private fun OverviewMetricCard(
     selected: Boolean,
     palette: InsightsUiColors,
     modifier: Modifier = Modifier,
+    isEditMode: Boolean = false,
+    onValueChange: ((String) -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     Column(
@@ -1088,12 +1191,31 @@ private fun OverviewMetricCard(
             overflow = TextOverflow.Ellipsis,
         )
         Spacer(Modifier.height(6.dp))
-        Text(
-            text = value,
-            style = IgTypography.insightsMainNumber.copy(fontFeatureSettings = "tnum"),
-            color = palette.textPrimary,
-            maxLines = 1,
-        )
+        if (isEditMode && onValueChange != null) {
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                singleLine = true,
+                cursorBrush = SolidColor(IgInsightsMagenta),
+                textStyle = IgTypography.insightsMainNumber.copy(
+                    color = palette.textPrimary,
+                    fontFeatureSettings = "tnum",
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(palette.bg)
+                    .border(1.dp, IgInsightsMagenta.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+            )
+        } else {
+            Text(
+                text = value,
+                style = IgTypography.insightsMainNumber.copy(fontFeatureSettings = "tnum"),
+                color = palette.textPrimary,
+                maxLines = 1,
+            )
+        }
     }
 }
 
@@ -1164,6 +1286,8 @@ private fun ProfileActivityRow(
     label: String,
     value: String,
     palette: InsightsUiColors,
+    isEditMode: Boolean = false,
+    onValueChange: ((String) -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
@@ -1183,13 +1307,34 @@ private fun ProfileActivityRow(
         }
         Spacer(Modifier.width(12.dp))
         Text(label, fontSize = 15.sp, color = palette.textPrimary, modifier = Modifier.weight(1f))
-        Text(
-            text = value,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Medium,
-            color = palette.textPrimary,
-            style = TextStyle(fontFeatureSettings = "tnum"),
-        )
+        if (isEditMode && onValueChange != null) {
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                singleLine = true,
+                cursorBrush = SolidColor(IgInsightsMagenta),
+                textStyle = TextStyle(
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = palette.textPrimary,
+                    fontFeatureSettings = "tnum",
+                ),
+                modifier = Modifier
+                    .width(72.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(palette.card)
+                    .border(1.dp, IgInsightsMagenta.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+        } else {
+            Text(
+                text = value,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium,
+                color = palette.textPrimary,
+                style = TextStyle(fontFeatureSettings = "tnum"),
+            )
+        }
     }
 }
 
@@ -1199,9 +1344,29 @@ private fun SimpleAudienceBarRow(
     pct: Double,
     barColor: Color,
     palette: InsightsUiColors,
+    isEditMode: Boolean = false,
+    onLabelChange: ((String) -> Unit)? = null,
+    onPctChange: ((Double) -> Unit)? = null,
 ) {
+    var pctDraft by remember(pct, isEditMode) { mutableStateOf(String.format(Locale.US, "%.1f", pct)) }
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text(label, fontSize = 14.sp, color = palette.textPrimary)
+        if (isEditMode && onLabelChange != null) {
+            BasicTextField(
+                value = label,
+                onValueChange = onLabelChange,
+                singleLine = true,
+                cursorBrush = SolidColor(IgInsightsMagenta),
+                textStyle = TextStyle(fontSize = 14.sp, color = palette.textPrimary),
+                modifier = Modifier
+                    .fillMaxWidth(0.7f)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(palette.card)
+                    .border(1.dp, IgInsightsMagenta.copy(alpha = 0.45f), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+        } else {
+            Text(label, fontSize = 14.sp, color = palette.textPrimary)
+        }
         Spacer(Modifier.height(5.dp))
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(
@@ -1223,12 +1388,36 @@ private fun SimpleAudienceBarRow(
                 }
             }
             Spacer(Modifier.width(14.dp))
-            Text(
-                text = String.format(Locale.US, "%.1f%%", pct),
-                fontSize = 14.sp,
-                color = palette.textPrimary,
-                style = TextStyle(fontFeatureSettings = "tnum"),
-            )
+            if (isEditMode && onPctChange != null) {
+                BasicTextField(
+                    value = pctDraft,
+                    onValueChange = { raw ->
+                        val cleaned = raw.filter { it.isDigit() || it == '.' }
+                        pctDraft = cleaned
+                        cleaned.toDoubleOrNull()?.let { onPctChange(it) }
+                    },
+                    singleLine = true,
+                    cursorBrush = SolidColor(IgInsightsMagenta),
+                    textStyle = TextStyle(
+                        fontSize = 14.sp,
+                        color = palette.textPrimary,
+                        fontFeatureSettings = "tnum",
+                    ),
+                    modifier = Modifier
+                        .width(58.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(palette.card)
+                        .border(1.dp, IgInsightsMagenta.copy(alpha = 0.45f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 6.dp, vertical = 3.dp),
+                )
+            } else {
+                Text(
+                    text = String.format(Locale.US, "%.1f%%", pct),
+                    fontSize = 14.sp,
+                    color = palette.textPrimary,
+                    style = TextStyle(fontFeatureSettings = "tnum"),
+                )
+            }
         }
     }
 }

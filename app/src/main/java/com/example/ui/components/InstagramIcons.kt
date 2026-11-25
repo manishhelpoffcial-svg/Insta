@@ -67,7 +67,7 @@ private fun IgSuppliedIcon(
     val alpha = when {
         applyColorTint != null -> 1f
         tint == IgLightTextSecondary || tint == IgDarkTextSecondary || tint == IgInsightsMutedText ->
-            if (useWhite) 0.56f else 0.48f
+            if (useWhite) 0.78f else 0.72f
         else -> tint.alpha
     }
 

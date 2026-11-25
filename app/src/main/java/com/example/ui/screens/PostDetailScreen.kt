@@ -463,11 +463,17 @@ private fun PostDetailFeedItem(
                 Spacer(Modifier.width(7.dp))
                 Text(
                     text = buildAnnotatedString {
-                        withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = colors.textPrimary)) {
-                            append(post.viewsDisplay)
-                        }
-                        withStyle(SpanStyle(fontWeight = FontWeight.SemiBold, color = colors.textPrimary)) {
-                            append(" · View insights")
+                        if (post.viewsDisplay.isNotBlank() && !post.viewsDisplay.equals("N/A", ignoreCase = true)) {
+                            withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = colors.textPrimary)) {
+                                append(post.viewsDisplay)
+                            }
+                            withStyle(SpanStyle(fontWeight = FontWeight.SemiBold, color = colors.textPrimary)) {
+                                append(" · View insights")
+                            }
+                        } else {
+                            withStyle(SpanStyle(fontWeight = FontWeight.SemiBold, color = colors.textPrimary)) {
+                                append("View insights")
+                            }
                         }
                     },
                     fontSize = 14.sp,
@@ -519,15 +525,7 @@ private fun PostDetailFeedItem(
                         tint = if (post.isLiked) IgNotifRed else colors.textPrimary,
                         size = 24.dp,
                     )
-                    if (post.likesUnavailable) {
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = "N/A",
-                            fontSize = 13.5.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = mutedColor,
-                        )
-                    } else if (post.likesCount > 0) {
+                    if (!post.likesUnavailable && post.likesCount > 0) {
                         Spacer(Modifier.width(6.dp))
                         Text(
                             text = ApifyRepository.formatCompactCount(post.likesCount.toLong()),
@@ -563,15 +561,7 @@ private fun PostDetailFeedItem(
                         tint = if (post.isReposted) IgOnlineGreen else colors.textPrimary,
                         size = 23.dp,
                     )
-                    if (post.repostsUnavailable) {
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = "N/A",
-                            fontSize = 13.5.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = mutedColor,
-                        )
-                    } else if (post.repostsCount > 0) {
+                    if (!post.repostsUnavailable && post.repostsCount > 0) {
                         Spacer(Modifier.width(6.dp))
                         Text(
                             text = ApifyRepository.formatCompactCount(post.repostsCount.toLong()),
@@ -597,15 +587,7 @@ private fun PostDetailFeedItem(
                         tint = colors.textPrimary,
                         size = 22.dp,
                     )
-                    if (post.sharesUnavailable) {
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = "N/A",
-                            fontSize = 13.5.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = mutedColor,
-                        )
-                    } else if (post.sharesCount > 0) {
+                    if (!post.sharesUnavailable && post.sharesCount > 0) {
                         Spacer(Modifier.width(6.dp))
                         Text(
                             text = ApifyRepository.formatCompactCount(post.sharesCount.toLong()),

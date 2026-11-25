@@ -596,4 +596,69 @@ class ExampleRobolectricTest {
         composeRule.onNodeWithText("Reel insights").assertIsDisplayed()
         composeRule.onNodeWithText("Light theme check").assertIsDisplayed()
     }
+
+    @Test
+    fun `apifyParser resolves missing fullName to username, omits NA on missing link or bio, and formats 30-day dashboard`() {
+        val sampleJson = """
+            [
+              {
+                "username": "obbyverse",
+                "fullName": "",
+                "biography": "",
+                "externalUrl": "",
+                "followersCount": 10,
+                "followsCount": 2,
+                "postsCount": 2,
+                "isPrivate": false,
+                "latestPosts": [
+                  {
+                    "id": "r1",
+                    "shortCode": "R1CODE",
+                    "type": "Video",
+                    "productType": "clips",
+                    "caption": "Tooth Fairy",
+                    "igPlayCount": 16785,
+                    "like_count": 1173,
+                    "comment_count": 3,
+                    "timestamp": "2026-11-17T10:00:00.000Z"
+                  },
+                  {
+                    "id": "r2",
+                    "shortCode": "R2CODE",
+                    "type": "Video",
+                    "productType": "clips",
+                    "caption": "Hollows",
+                    "video_view_count": 63,
+                    "likesCount": 2,
+                    "commentsCount": 0,
+                    "timestamp": "2026-11-16T10:00:00.000Z"
+                  }
+                ]
+              }
+            ]
+        """.trimIndent()
+
+        val result = ApifyRepository().parseApifyResponseJson(sampleJson)
+        assertTrue(result.isSuccess)
+        val data = result.getOrThrow()
+        assertEquals("obbyverse", data.profile.displayName)
+        assertEquals("", data.profile.externalUrl)
+        assertEquals("", data.profile.bio)
+        assertTrue(data.profile.dashboardSubtitle.contains("in the last 30 days."))
+        assertTrue(!data.profile.dashboardSubtitle.contains("fetched posts"))
+        assertEquals("16,785", data.posts[0].insights.views)
+        assertEquals("1,173", data.posts[0].insights.likes)
+        assertEquals("63", data.posts[1].insights.views)
+
+        val app = ApplicationProvider.getApplicationContext<android.app.Application>()
+        val vm = com.example.ui.viewmodel.InstagramViewModel(app)
+        vm.applyFetchedAccount(data.profile, data.posts)
+        assertEquals("16,848", vm.appState.value.accountInsights.overviewViews)
+        assertEquals("16.8K", vm.appState.value.accountInsights.dashboardViews)
+        assertEquals("10", vm.appState.value.accountInsights.audienceFollowersTotal)
+
+        val defaultStories = com.example.data.DefaultSampleData.createInitialState().stories
+        assertTrue(defaultStories.any { !it.hasActiveRing && it.storyImageKey.isBlank() })
+        assertTrue(defaultStories.any { it.hasActiveRing && it.storyImageKey.isNotBlank() })
+    }
 }

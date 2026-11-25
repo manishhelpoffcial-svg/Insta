@@ -418,6 +418,7 @@ fun InstagramCloneApp(
 
                                         MainTab.REELS -> ReelsScreen(
                                             posts = appState.posts,
+                                            stories = appState.stories,
                                             isScreenActive = !hasModalOpen && activeTab == MainTab.REELS,
                                             onLikeClick = viewModel::toggleLike,
                                             onDoubleTapLike = viewModel::likePostIfUnliked,

@@ -189,11 +189,19 @@ fun CreatorProfileScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),
                 ) {
-                    if (creator.bio.isNotBlank()) {
+                    if (creator.bio.isNotBlank() && !creator.bio.equals("N/A", ignoreCase = true)) {
                         Text(
                             text = creator.bio,
                             style = IgTypography.postCaption,
                             color = colors.textPrimary,
+                        )
+                    }
+                    if (creator.privacyStatus.equals("Private", ignoreCase = true)) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = "Private account",
+                            style = IgTypography.secondaryMeta,
+                            color = colors.textSecondary,
                         )
                     }
                     Spacer(Modifier.height(14.dp))

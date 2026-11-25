@@ -243,6 +243,8 @@ private fun StoryTrayItem(
             .width(74.dp)
             .clickable(onClick = onClick),
     ) {
+        val hasUploadedStory = story.hasActiveRing &&
+            (story.storyImageKey.isNotBlank() || story.storyCaption.isNotBlank())
         Box(
             modifier = Modifier.size(72.dp),
             contentAlignment = Alignment.Center,
@@ -251,7 +253,7 @@ private fun StoryTrayItem(
                 avatarUrl = if (story.isOwnStory) profile.avatarUrl else story.avatarUrl,
                 avatarKey = if (story.isOwnStory) profile.avatarDrawableKey else story.avatarKey,
                 size = 64.dp,
-                showGradientRing = story.hasActiveRing,
+                showGradientRing = hasUploadedStory,
                 ringStrokeWidth = 2.5.dp,
                 contentDescription = story.username,
             )
