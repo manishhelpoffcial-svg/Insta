@@ -1,9 +1,12 @@
 package com.example.ui.components
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,11 +22,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.example.data.model.ProfileData
@@ -47,7 +52,7 @@ fun InstagramBottomBar(
     val barBg = if (isReelsDark) IgDarkBackground else colors.background
     val iconTint = if (isReelsDark) Color.White else colors.textPrimary
     val activePillBg = if (isReelsDark) IgDarkPill else colors.pillBackground
-    val dividerColor = if (isReelsDark) IgDarkHairline.copy(alpha = 0.5f) else colors.hairline
+    val dividerColor = if (isReelsDark) IgDarkHairline.copy(alpha = 0.55f) else colors.hairline
 
     Column(
         modifier = modifier
@@ -67,59 +72,63 @@ fun InstagramBottomBar(
             NavTabItem(
                 selected = activeTab == MainTab.HOME,
                 pillColor = activePillBg,
-                showPillWhenSelected = true,
                 testTag = "nav_home",
                 onClick = { onSelectTab(MainTab.HOME) },
             ) {
                 IgHomeIcon(
                     filled = activeTab == MainTab.HOME,
                     tint = iconTint,
+                    forceWhite = isReelsDark,
+                    size = 24.dp,
                 )
             }
 
             NavTabItem(
                 selected = activeTab == MainTab.REELS,
                 pillColor = activePillBg,
-                showPillWhenSelected = true,
                 testTag = "nav_reels",
                 onClick = { onSelectTab(MainTab.REELS) },
             ) {
                 IgReelsIcon(
                     filled = activeTab == MainTab.REELS,
                     tint = iconTint,
+                    forceWhite = isReelsDark,
+                    size = 24.dp,
                 )
             }
 
             NavTabItem(
                 selected = activeTab == MainTab.MESSAGES,
                 pillColor = activePillBg,
-                showPillWhenSelected = true,
                 testTag = "nav_messages",
                 onClick = { onSelectTab(MainTab.MESSAGES) },
             ) {
                 IgSharePlaneIcon(
                     filled = activeTab == MainTab.MESSAGES,
                     tint = iconTint,
+                    forceWhite = isReelsDark,
+                    size = 23.dp,
                 )
             }
 
             NavTabItem(
                 selected = activeTab == MainTab.EXPLORE,
                 pillColor = activePillBg,
-                showPillWhenSelected = true,
                 testTag = "nav_explore",
                 onClick = { onSelectTab(MainTab.EXPLORE) },
             ) {
                 IgSearchIcon(
                     bold = activeTab == MainTab.EXPLORE,
                     tint = iconTint,
+                    forceWhite = isReelsDark,
+                    size = 24.dp,
                 )
             }
 
             NavTabItem(
                 selected = activeTab == MainTab.PROFILE,
                 pillColor = activePillBg,
-                showPillWhenSelected = true,
+                showPillWhenSelected = false,
                 testTag = "nav_profile",
                 onClick = onProfileTap,
             ) {
@@ -154,11 +163,20 @@ fun InstagramBottomBar(
 private fun NavTabItem(
     selected: Boolean,
     pillColor: Color,
-    showPillWhenSelected: Boolean,
+    showPillWhenSelected: Boolean = true,
     testTag: String,
     onClick: () -> Unit,
     content: @Composable () -> Unit,
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val reducedMotion = InstagramTheme.isReducedMotion
+    val pressScale by animateFloatAsState(
+        targetValue = if (isPressed && !reducedMotion) 0.90f else 1f,
+        animationSpec = tween(durationMillis = if (reducedMotion) 0 else 90),
+        label = "nav_press_scale",
+    )
+
     Box(
         modifier = Modifier
             .testTag(testTag)
@@ -166,7 +184,7 @@ private fun NavTabItem(
             .height(48.dp)
             .clip(RoundedCornerShape(24.dp))
             .clickable(
-                interactionSource = remember { MutableInteractionSource() },
+                interactionSource = interactionSource,
                 indication = null,
                 onClick = onClick,
             ),
@@ -176,11 +194,16 @@ private fun NavTabItem(
             Box(
                 modifier = Modifier
                     .width(56.dp)
-                    .height(38.dp)
+                    .height(36.dp)
                     .clip(RoundedCornerShape(20.dp))
                     .background(pillColor),
             )
         }
-        content()
+        Box(
+            modifier = Modifier.graphicsLayer(scaleX = pressScale, scaleY = pressScale),
+            contentAlignment = Alignment.Center,
+        ) {
+            content()
+        }
     }
 }

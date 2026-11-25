@@ -1,77 +1,183 @@
 package com.example.ui.components
 
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.R
+import com.example.ui.theme.IgDarkTextSecondary
+import com.example.ui.theme.IgInsightsMutedText
+import com.example.ui.theme.IgLightTextSecondary
+import com.example.ui.theme.IgNotifRed
+import com.example.ui.theme.InstagramTheme
 
 private fun Modifier.semanticsLabel(label: String?): Modifier =
     if (label != null) this.semantics { contentDescription = label } else this
 
 /**
- * Bottom Bar Home tab icon - uses authentic Instagram Home outline/filled icons,
- * automatically switching between Light mode (black) and Dark mode (white).
+ * Resolves whether white icons should be displayed based on the active theme or explicit white tint.
+ */
+@Composable
+private fun shouldUseWhiteIcon(tint: Color, forceWhite: Boolean): Boolean {
+    if (forceWhite || tint == Color.White) return true
+    if (tint == Color.Black) return false
+    return InstagramTheme.colors.isDark
+}
+
+/**
+ * Renders one of the exact supplied transparent PNG icons from the uploaded icon packs.
+ * Automatically switches between the white pack (dark backgrounds) and black pack (light backgrounds).
+ * Optical scaling (~1.30x inside the fixed Box) compensates for the transparent canvas margins in the supplied PNGs
+ * so every glyph aligns cleanly with standard 24dp Android touch/icon dimensions.
+ */
+@Composable
+private fun IgSuppliedIcon(
+    @DrawableRes whiteRes: Int,
+    @DrawableRes blackRes: Int,
+    size: Dp,
+    contentDescription: String?,
+    tint: Color = InstagramTheme.colors.textPrimary,
+    forceWhite: Boolean = false,
+    applyColorTint: ColorFilter? = null,
+    opticalScale: Float = 1.30f,
+    modifier: Modifier = Modifier,
+) {
+    val useWhite = shouldUseWhiteIcon(tint = tint, forceWhite = forceWhite)
+    val resId = if (useWhite) whiteRes else blackRes
+    val alpha = when {
+        applyColorTint != null -> 1f
+        tint == IgLightTextSecondary || tint == IgDarkTextSecondary || tint == IgInsightsMutedText ->
+            if (useWhite) 0.56f else 0.48f
+        else -> tint.alpha
+    }
+
+    Box(
+        modifier = modifier
+            .size(size)
+            .semanticsLabel(contentDescription),
+        contentAlignment = Alignment.Center,
+    ) {
+        Image(
+            painter = painterResource(resId),
+            contentDescription = contentDescription,
+            contentScale = ContentScale.Fit,
+            alpha = alpha,
+            colorFilter = applyColorTint,
+            modifier = Modifier.requiredSize(size * opticalScale),
+        )
+    }
+}
+
+/**
+ * Minimal Instagram-style rotating circular spinner adapted automatically to Dark and Light themes.
+ */
+@Composable
+fun InstagramCircularSpinner(
+    modifier: Modifier = Modifier,
+    size: Dp = 28.dp,
+    strokeWidth: Dp = 2.4.dp,
+    color: Color = InstagramTheme.colors.spinnerTint,
+) {
+    CircularProgressIndicator(
+        color = color,
+        strokeWidth = strokeWidth,
+        strokeCap = StrokeCap.Round,
+        modifier = modifier.size(size),
+    )
+}
+
+/**
+ * Bottom Bar Home tab icon - supplied white/black home outline & filled PNGs.
  */
 @Composable
 fun IgHomeIcon(
     filled: Boolean,
-    tint: Color,
-    size: Dp = 25.dp,
+    tint: Color = InstagramTheme.colors.textPrimary,
+    size: Dp = 24.dp,
+    forceWhite: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
-    val resId = if (filled) R.drawable.ic_ig_home_filled else R.drawable.ic_ig_home
-    Icon(
-        painter = painterResource(resId),
+    IgSuppliedIcon(
+        whiteRes = if (filled) R.drawable.ic_zip_w_home_filled else R.drawable.ic_zip_w_home_outline,
+        blackRes = if (filled) R.drawable.ic_zip_b_home_filled else R.drawable.ic_zip_b_home_outline,
+        size = size,
         contentDescription = "Home",
         tint = tint,
-        modifier = modifier
-            .size(size)
-            .semanticsLabel("Home"),
+        forceWhite = forceWhite,
+        modifier = modifier,
     )
 }
 
 /**
- * Bottom Bar Reels tab icon - uses authentic Instagram Reels outline/filled icons.
+ * Bottom Bar Reels tab icon - supplied video_outline / video_filled PNGs matching official Instagram Reels navigation.
  */
 @Composable
 fun IgReelsIcon(
     filled: Boolean,
-    tint: Color,
+    tint: Color = InstagramTheme.colors.textPrimary,
     size: Dp = 24.dp,
+    forceWhite: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
-    val resId = if (filled) R.drawable.ic_ig_reels_filled else R.drawable.ic_ig_reels
-    Icon(
-        painter = painterResource(resId),
+    IgSuppliedIcon(
+        whiteRes = if (filled) R.drawable.ic_zip_w_video_filled else R.drawable.ic_zip_w_video_outline,
+        blackRes = if (filled) R.drawable.ic_zip_b_video_filled else R.drawable.ic_zip_b_video_outline,
+        size = size,
         contentDescription = "Reels",
         tint = tint,
-        modifier = modifier
-            .size(size)
-            .semanticsLabel("Reels"),
+        forceWhite = forceWhite,
+        modifier = modifier,
     )
 }
 
 /**
- * Profile Tab 1: Authentic 3x3 Instagram post grid icon.
+ * Classic clapperboard Reels icon from supplied ZIP pack.
+ */
+@Composable
+fun IgReelsClapperIcon(
+    tint: Color = InstagramTheme.colors.textPrimary,
+    size: Dp = 24.dp,
+    forceWhite: Boolean = false,
+    modifier: Modifier = Modifier,
+) {
+    IgSuppliedIcon(
+        whiteRes = R.drawable.ic_zip_w_reels,
+        blackRes = R.drawable.ic_zip_b_reels,
+        size = size,
+        contentDescription = "Reels",
+        tint = tint,
+        forceWhite = forceWhite,
+        modifier = modifier,
+    )
+}
+
+/**
+ * Profile Tab 1: Authentic 3x3 Instagram post grid wireframe icon.
  */
 @Composable
 fun IgGridTabIcon(
     active: Boolean = true,
-    tint: Color,
+    tint: Color = InstagramTheme.colors.textPrimary,
     size: Dp = 22.dp,
     contentDescription: String? = "Posts grid",
     modifier: Modifier = Modifier,
@@ -88,184 +194,332 @@ fun IgGridTabIcon(
 }
 
 /**
- * Profile Tab 2: Authentic Instagram Reels tab squircle icon.
+ * Profile Tab 2 & Reel Grid Overlay Badge: supplied video_outline icon.
  */
 @Composable
 fun IgReelsSquircleIcon(
-    tint: Color,
-    size: Dp = 23.dp,
+    tint: Color = InstagramTheme.colors.textPrimary,
+    size: Dp = 22.dp,
+    forceWhite: Boolean = false,
     contentDescription: String? = "Reels",
     modifier: Modifier = Modifier,
 ) {
-    Icon(
-        painter = painterResource(R.drawable.ic_ig_reels_tab),
+    IgSuppliedIcon(
+        whiteRes = R.drawable.ic_zip_w_video_outline,
+        blackRes = R.drawable.ic_zip_b_video_outline,
+        size = size,
         contentDescription = contentDescription,
         tint = tint,
-        modifier = modifier
-            .size(size)
-            .semanticsLabel(contentDescription),
+        forceWhite = forceWhite,
+        modifier = modifier,
     )
 }
 
 /**
- * Profile Tab 3 & Engagement Bar Repost Icon:
- * Two vertical rounded arrows forming a loop (top-right pointing right, bottom-left pointing left).
+ * Profile Tab 3 & Engagement Bar Repost Icon: supplied repost PNGs.
  */
 @Composable
 fun IgRepostLoopIcon(
-    tint: Color,
+    tint: Color = InstagramTheme.colors.textPrimary,
     size: Dp = 23.dp,
-    strokeWidthDp: Dp = 2.dp,
+    @Suppress("UNUSED_PARAMETER") strokeWidthDp: Dp = 2.dp,
+    forceWhite: Boolean = false,
     contentDescription: String? = "Repost",
     modifier: Modifier = Modifier,
 ) {
-    Canvas(modifier = modifier.size(size).semanticsLabel(contentDescription)) {
-        val w = this.size.width
-        val h = this.size.height
-        val strokeWidth = strokeWidthDp.toPx()
-        val strokeStyle = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
-
-        // Left vertical arrow pointing UP
-        val leftArrowStem = Path().apply {
-            moveTo(w * 0.56f, h * 0.80f)
-            lineTo(w * 0.39f, h * 0.80f)
-            quadraticTo(w * 0.27f, h * 0.80f, w * 0.27f, h * 0.67f)
-            lineTo(w * 0.27f, h * 0.25f)
-        }
-        drawPath(leftArrowStem, color = tint, style = strokeStyle)
-
-        val leftArrowHead = Path().apply {
-            moveTo(w * 0.15f, h * 0.37f)
-            lineTo(w * 0.27f, h * 0.24f)
-            lineTo(w * 0.39f, h * 0.37f)
-        }
-        drawPath(leftArrowHead, color = tint, style = strokeStyle)
-
-        // Right vertical arrow pointing DOWN
-        val rightArrowStem = Path().apply {
-            moveTo(w * 0.44f, h * 0.20f)
-            lineTo(w * 0.61f, h * 0.20f)
-            quadraticTo(w * 0.73f, h * 0.20f, w * 0.73f, h * 0.33f)
-            lineTo(w * 0.73f, h * 0.75f)
-        }
-        drawPath(rightArrowStem, color = tint, style = strokeStyle)
-
-        val rightArrowHead = Path().apply {
-            moveTo(w * 0.61f, h * 0.63f)
-            lineTo(w * 0.73f, h * 0.76f)
-            lineTo(w * 0.85f, h * 0.63f)
-        }
-        drawPath(rightArrowHead, color = tint, style = strokeStyle)
-    }
-}
-
-/**
- * Profile Tab 4: Authentic Instagram Tagged profile badge icon.
- */
-@Composable
-fun IgTaggedPersonIcon(
-    tint: Color,
-    size: Dp = 23.dp,
-    contentDescription: String? = "Tagged",
-    modifier: Modifier = Modifier,
-) {
-    Icon(
-        painter = painterResource(R.drawable.ic_ig_tagged),
+    val isAccentGreen = tint == Color(0xFF22C55E) || tint == Color(0xFF4ADE80)
+    IgSuppliedIcon(
+        whiteRes = R.drawable.ic_zip_w_repost,
+        blackRes = R.drawable.ic_zip_b_repost,
+        size = size,
         contentDescription = contentDescription,
         tint = tint,
-        modifier = modifier
-            .size(size)
-            .semanticsLabel(contentDescription),
+        forceWhite = forceWhite,
+        applyColorTint = if (isAccentGreen) ColorFilter.tint(tint) else null,
+        modifier = modifier,
     )
 }
 
 /**
- * Post Engagement 1: Authentic Instagram heart outline or filled red / monochrome when liked.
+ * Profile Tab 4: Tagged profile card icon from supplied ZIP pack (`profile_card.png`).
+ */
+@Composable
+fun IgTaggedPersonIcon(
+    tint: Color = InstagramTheme.colors.textPrimary,
+    size: Dp = 23.dp,
+    forceWhite: Boolean = false,
+    contentDescription: String? = "Tagged",
+    modifier: Modifier = Modifier,
+) {
+    IgSuppliedIcon(
+        whiteRes = R.drawable.ic_zip_w_profile_card,
+        blackRes = R.drawable.ic_zip_b_profile_card,
+        size = size,
+        contentDescription = contentDescription,
+        tint = tint,
+        forceWhite = forceWhite,
+        modifier = modifier,
+    )
+}
+
+/**
+ * Post Engagement 1 & Header Notifications: supplied heart outline / filled red / monochrome PNGs.
  */
 @Composable
 fun IgHeartStrokeIcon(
     filled: Boolean,
-    tint: Color,
+    tint: Color = InstagramTheme.colors.textPrimary,
     size: Dp = 24.dp,
-    strokeWidthDp: Dp = 2.dp,
+    @Suppress("UNUSED_PARAMETER") strokeWidthDp: Dp = 2.dp,
+    forceWhite: Boolean = false,
     contentDescription: String? = "Like",
     modifier: Modifier = Modifier,
 ) {
-    val isRed = tint == Color(0xFFED4956)
-    val resId = when {
-        filled && isRed -> R.drawable.ic_ig_heart_red
-        filled -> R.drawable.ic_ig_heart_filled
-        else -> R.drawable.ic_ig_heart
+    val isRed = tint == Color(0xFFED4956) || tint == IgNotifRed
+    val (whiteRes, blackRes) = when {
+        filled && isRed -> R.drawable.ic_zip_w_heart_filled_red to R.drawable.ic_zip_b_heart_filled_red
+        filled -> R.drawable.ic_zip_w_heart_filled to R.drawable.ic_zip_b_heart_filled
+        else -> R.drawable.ic_zip_w_heart_outline to R.drawable.ic_zip_b_heart_outline
     }
-    Icon(
-        painter = painterResource(resId),
+    IgSuppliedIcon(
+        whiteRes = whiteRes,
+        blackRes = blackRes,
+        size = size,
         contentDescription = contentDescription,
         tint = if (filled && isRed) Color.Unspecified else tint,
-        modifier = modifier
-            .size(size)
-            .semanticsLabel(contentDescription),
+        forceWhite = forceWhite,
+        modifier = modifier,
     )
 }
 
 /**
- * Post Engagement 2: Authentic Instagram speech comment bubble icon.
+ * Post Engagement 2: supplied speech comment bubble PNG (`comment.png`).
  */
 @Composable
 fun IgCommentBubbleIcon(
-    tint: Color,
+    tint: Color = InstagramTheme.colors.textPrimary,
     size: Dp = 23.dp,
-    strokeWidthDp: Dp = 2.dp,
+    @Suppress("UNUSED_PARAMETER") strokeWidthDp: Dp = 2.dp,
+    forceWhite: Boolean = false,
     contentDescription: String? = "Comment",
     modifier: Modifier = Modifier,
 ) {
-    Icon(
-        painter = painterResource(R.drawable.ic_ig_comment),
+    IgSuppliedIcon(
+        whiteRes = R.drawable.ic_zip_w_comment,
+        blackRes = R.drawable.ic_zip_b_comment,
+        size = size,
         contentDescription = contentDescription,
         tint = tint,
-        modifier = modifier
-            .size(size)
-            .semanticsLabel(contentDescription),
+        forceWhite = forceWhite,
+        modifier = modifier,
     )
 }
 
 /**
- * Post Engagement 4 / Bottom Bar Share Icon:
- * Authentic Instagram paper airplane share icon.
+ * Post Engagement 4 / Bottom Bar Messages Icon:
+ * Uses supplied `send_fold` (outline) and `send_filled` (filled/active) PNGs matching Instagram UI.
  */
 @Composable
 fun IgSharePlaneIcon(
     filled: Boolean = false,
-    tint: Color,
+    tint: Color = InstagramTheme.colors.textPrimary,
     size: Dp = 23.dp,
-    strokeWidthDp: Dp = 2.dp,
+    @Suppress("UNUSED_PARAMETER") strokeWidthDp: Dp = 2.dp,
+    forceWhite: Boolean = false,
     contentDescription: String? = "Share",
     modifier: Modifier = Modifier,
 ) {
-    Icon(
-        painter = painterResource(R.drawable.ic_ig_share_plane),
+    IgSuppliedIcon(
+        whiteRes = if (filled) R.drawable.ic_zip_w_send_filled else R.drawable.ic_zip_w_send_fold,
+        blackRes = if (filled) R.drawable.ic_zip_b_send_filled else R.drawable.ic_zip_b_send_fold,
+        size = size,
         contentDescription = contentDescription,
         tint = tint,
-        modifier = modifier
-            .size(size)
-            .semanticsLabel(contentDescription),
+        forceWhite = forceWhite,
+        modifier = modifier,
     )
 }
 
 /**
- * Post Engagement 5: Authentic Instagram bookmark save icon.
+ * Post Engagement 5: Bookmark icon (`bookmark.png` outline from ZIP; crisp matching filled vector when saved).
  */
 @Composable
 fun IgBookmarkStrokeIcon(
     filled: Boolean,
-    tint: Color,
+    tint: Color = InstagramTheme.colors.textPrimary,
     size: Dp = 23.dp,
-    strokeWidthDp: Dp = 2.dp,
+    @Suppress("UNUSED_PARAMETER") strokeWidthDp: Dp = 2.dp,
+    forceWhite: Boolean = false,
     contentDescription: String? = "Save",
     modifier: Modifier = Modifier,
 ) {
-    val resId = if (filled) R.drawable.ic_ig_bookmark_filled else R.drawable.ic_ig_bookmark
+    if (filled) {
+        val resolvedTint = if (forceWhite) Color.White else tint
+        Icon(
+            painter = painterResource(R.drawable.ic_ig_bookmark_filled),
+            contentDescription = contentDescription,
+            tint = resolvedTint,
+            modifier = modifier
+                .size(size)
+                .semanticsLabel(contentDescription),
+        )
+    } else {
+        IgSuppliedIcon(
+            whiteRes = R.drawable.ic_zip_w_bookmark,
+            blackRes = R.drawable.ic_zip_b_bookmark,
+            size = size,
+            contentDescription = contentDescription,
+            tint = tint,
+            forceWhite = forceWhite,
+            modifier = modifier,
+        )
+    }
+}
+
+/**
+ * Bottom Bar Search / Explore icon from supplied ZIP pack (`search.png`).
+ */
+@Composable
+fun IgSearchIcon(
+    @Suppress("UNUSED_PARAMETER") bold: Boolean = false,
+    tint: Color = InstagramTheme.colors.textPrimary,
+    size: Dp = 24.dp,
+    forceWhite: Boolean = false,
+    modifier: Modifier = Modifier,
+) {
+    IgSuppliedIcon(
+        whiteRes = R.drawable.ic_zip_w_search,
+        blackRes = R.drawable.ic_zip_b_search,
+        size = size,
+        contentDescription = "Search",
+        tint = tint,
+        forceWhite = forceWhite,
+        modifier = modifier,
+    )
+}
+
+/**
+ * Header `+` create icon from supplied ZIP pack (`plus.png`).
+ */
+@Composable
+fun IgPlusIcon(
+    tint: Color = InstagramTheme.colors.textPrimary,
+    size: Dp = 22.dp,
+    forceWhite: Boolean = false,
+    contentDescription: String? = "Create",
+    modifier: Modifier = Modifier,
+) {
+    IgSuppliedIcon(
+        whiteRes = R.drawable.ic_zip_w_plus,
+        blackRes = R.drawable.ic_zip_b_plus,
+        size = size,
+        contentDescription = contentDescription,
+        tint = tint,
+        forceWhite = forceWhite,
+        modifier = modifier,
+    )
+}
+
+/**
+ * Camera icon from supplied ZIP pack (`camera.png`).
+ */
+@Composable
+fun IgCameraIcon(
+    tint: Color = InstagramTheme.colors.textPrimary,
+    size: Dp = 23.dp,
+    forceWhite: Boolean = false,
+    contentDescription: String? = "Camera",
+    modifier: Modifier = Modifier,
+) {
+    IgSuppliedIcon(
+        whiteRes = R.drawable.ic_zip_w_camera,
+        blackRes = R.drawable.ic_zip_b_camera,
+        size = size,
+        contentDescription = contentDescription,
+        tint = tint,
+        forceWhite = forceWhite,
+        modifier = modifier,
+    )
+}
+
+/**
+ * New message / compose icon from supplied ZIP pack (`compose.png`).
+ */
+@Composable
+fun IgComposeIcon(
+    tint: Color = InstagramTheme.colors.textPrimary,
+    size: Dp = 23.dp,
+    forceWhite: Boolean = false,
+    contentDescription: String? = "New message",
+    modifier: Modifier = Modifier,
+) {
+    IgSuppliedIcon(
+        whiteRes = R.drawable.ic_zip_w_compose,
+        blackRes = R.drawable.ic_zip_b_compose,
+        size = size,
+        contentDescription = contentDescription,
+        tint = tint,
+        forceWhite = forceWhite,
+        modifier = modifier,
+    )
+}
+
+/**
+ * Add friend / suggested user icon from supplied ZIP pack (`add_user.png`).
+ */
+@Composable
+fun IgAddUserIcon(
+    tint: Color = InstagramTheme.colors.textPrimary,
+    size: Dp = 15.dp,
+    forceWhite: Boolean = false,
+    contentDescription: String? = "Follow suggestion",
+    modifier: Modifier = Modifier,
+) {
+    IgSuppliedIcon(
+        whiteRes = R.drawable.ic_zip_w_add_user,
+        blackRes = R.drawable.ic_zip_b_add_user,
+        size = size,
+        contentDescription = contentDescription,
+        tint = tint,
+        forceWhite = forceWhite,
+        modifier = modifier,
+    )
+}
+
+/**
+ * Profile circle fallback icon from supplied ZIP pack (`profile_circle.png`).
+ */
+@Composable
+fun IgProfileCircleIcon(
+    tint: Color = InstagramTheme.colors.textPrimary,
+    size: Dp = 26.dp,
+    forceWhite: Boolean = false,
+    contentDescription: String? = "Profile",
+    modifier: Modifier = Modifier,
+) {
+    IgSuppliedIcon(
+        whiteRes = R.drawable.ic_zip_w_profile_circle,
+        blackRes = R.drawable.ic_zip_b_profile_circle,
+        size = size,
+        contentDescription = contentDescription,
+        tint = tint,
+        forceWhite = forceWhite,
+        modifier = modifier,
+    )
+}
+
+/**
+ * Clean back arrow vector icon automatically tinted to active theme.
+ */
+@Composable
+fun IgBackIcon(
+    tint: Color = InstagramTheme.colors.textPrimary,
+    size: Dp = 22.dp,
+    contentDescription: String? = "Back",
+    modifier: Modifier = Modifier,
+) {
     Icon(
-        painter = painterResource(resId),
+        painter = painterResource(R.drawable.ic_ig_back),
         contentDescription = contentDescription,
         tint = tint,
         modifier = modifier
@@ -275,23 +529,22 @@ fun IgBookmarkStrokeIcon(
 }
 
 /**
- * Bottom Bar Search / Explore icon.
+ * Three-dot overflow menu vector icon.
  */
 @Composable
-fun IgSearchIcon(
-    bold: Boolean = false,
-    tint: Color,
-    size: Dp = 24.dp,
+fun IgMoreDotsIcon(
+    tint: Color = InstagramTheme.colors.textPrimary,
+    size: Dp = 20.dp,
+    contentDescription: String? = "More",
     modifier: Modifier = Modifier,
 ) {
-    val resId = if (bold) R.drawable.ic_ig_search_bold else R.drawable.ic_ig_search
     Icon(
-        painter = painterResource(resId),
-        contentDescription = "Search",
+        painter = painterResource(R.drawable.ic_ig_more_dots),
+        contentDescription = contentDescription,
         tint = tint,
         modifier = modifier
             .size(size)
-            .semanticsLabel("Search"),
+            .semanticsLabel(contentDescription),
     )
 }
 
@@ -329,7 +582,6 @@ fun IgShareBoxUpIcon(
         val strokeWidth = 2.dp.toPx()
         val strokeStyle = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
 
-        // Open-top rounded tray box
         val tray = Path().apply {
             moveTo(w * 0.34f, h * 0.36f)
             lineTo(w * 0.24f, h * 0.36f)
@@ -344,7 +596,6 @@ fun IgShareBoxUpIcon(
         }
         drawPath(tray, color = tint, style = strokeStyle)
 
-        // Vertical arrow pointing up
         drawLine(
             color = tint,
             start = Offset(w * 0.50f, h * 0.62f),
@@ -410,7 +661,7 @@ fun MetaVerifiedRosetteIcon(
  */
 @Composable
 fun IgTwoLineMenuIcon(
-    tint: Color = Color.White,
+    tint: Color = InstagramTheme.colors.textPrimary,
     size: Dp = 20.dp,
     modifier: Modifier = Modifier,
 ) {

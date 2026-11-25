@@ -76,6 +76,7 @@ import com.example.ui.theme.IgBoostBlue
 import com.example.ui.theme.IgLinkBlue
 import com.example.ui.theme.IgNotifRed
 import com.example.ui.theme.InstagramTheme
+import com.example.ui.theme.ThemeMode
 import com.example.ui.viewmodel.FetchAccountUiState
 import kotlinx.coroutines.delay
 
@@ -106,6 +107,8 @@ fun FetchInstagramAccountModal(
     onSubmitUsername: (username: String) -> Unit,
     onInputChanged: () -> Unit = {},
     onLogoutClick: (() -> Unit)? = null,
+    themeMode: ThemeMode? = null,
+    onSelectThemeMode: ((ThemeMode) -> Unit)? = null,
 ) {
     val colors = InstagramTheme.colors
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -239,8 +242,52 @@ fun FetchInstagramAccountModal(
                 )
             }
 
+            if (themeMode != null && onSelectThemeMode != null) {
+                HorizontalDivider(thickness = 0.5.dp, color = colors.hairline)
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = "Appearance",
+                        color = colors.textSecondary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        ThemeMode.entries.forEach { mode ->
+                            val selected = themeMode == mode
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(34.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (selected) colors.textPrimary else colors.pillBackground)
+                                    .clickable { onSelectThemeMode(mode) }
+                                    .testTag("theme_mode_${mode.name.lowercase()}"),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = when (mode) {
+                                        ThemeMode.SYSTEM -> "Auto"
+                                        ThemeMode.DARK -> "Dark"
+                                        ThemeMode.LIGHT -> "Light"
+                                    },
+                                    color = if (selected) colors.background else colors.textPrimary,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             if (onLogoutClick != null) {
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(4.dp))
                 Text(
                     text = "Log Out of Account",
                     color = IgNotifRed,

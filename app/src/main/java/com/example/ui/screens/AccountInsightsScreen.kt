@@ -28,9 +28,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Link
@@ -68,9 +66,11 @@ import com.example.ui.components.AccountOverviewLineChart
 import com.example.ui.components.DualToneAgeBarRow
 import com.example.ui.components.FollowerActiveTimesBarChart
 import com.example.ui.components.FollowerGrowthChart
+import com.example.ui.components.IgBackIcon
 import com.example.ui.components.IgCommentBubbleIcon
 import com.example.ui.components.IgEyeIcon
 import com.example.ui.components.IgHeartStrokeIcon
+import com.example.ui.components.IgMoreDotsIcon
 import com.example.ui.components.IgReelsSquircleIcon
 import com.example.ui.components.IgShareBoxUpIcon
 import com.example.ui.components.IgSharePlaneIcon
@@ -83,6 +83,7 @@ import com.example.ui.theme.IgBoostBlue
 import com.example.ui.theme.IgInsightsMagenta
 import com.example.ui.theme.IgInsightsViolet
 import com.example.ui.theme.IgLinkBlue
+import com.example.ui.theme.IgTypography
 import java.util.Locale
 
 @Composable
@@ -131,17 +132,15 @@ fun AccountInsightsScreen(
                     onClick = onBack,
                     modifier = Modifier.testTag("account_insights_back_button"),
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
+                    IgBackIcon(
+                        size = 24.dp,
                         tint = palette.textPrimary,
                     )
                 }
                 Spacer(Modifier.width(4.dp))
                 Text(
                     text = "Insights",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = IgTypography.screenHeading,
                     color = palette.textPrimary,
                 )
             }
@@ -178,9 +177,8 @@ fun AccountInsightsScreen(
                     onClick = { showEditModal = true },
                     modifier = Modifier.testTag("account_insights_edit_button"),
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.MoreVert,
-                        contentDescription = "Edit account insights",
+                    IgMoreDotsIcon(
+                        size = 22.dp,
                         tint = palette.textPrimary,
                     )
                 }
@@ -1071,7 +1069,7 @@ private fun OverviewMetricCard(
 ) {
     Column(
         modifier = modifier
-            .width(128.dp)
+            .width(136.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(palette.card)
             .border(
@@ -1084,7 +1082,7 @@ private fun OverviewMetricCard(
     ) {
         Text(
             text = label,
-            fontSize = 13.sp,
+            style = IgTypography.secondaryMeta,
             color = palette.textSecondary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -1092,10 +1090,9 @@ private fun OverviewMetricCard(
         Spacer(Modifier.height(6.dp))
         Text(
             text = value,
-            fontSize = 22.sp,
-            fontWeight = FontWeight.Bold,
+            style = IgTypography.insightsMainNumber.copy(fontFeatureSettings = "tnum"),
             color = palette.textPrimary,
-            style = TextStyle(fontFeatureSettings = "tnum"),
+            maxLines = 1,
         )
     }
 }
@@ -1137,8 +1134,7 @@ private fun InsightsSectionTitle(
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
             text = title,
-            fontSize = 16.5.sp,
-            fontWeight = FontWeight.SemiBold,
+            style = IgTypography.insightsSectionHeading,
             color = palette.textPrimary,
         )
         Spacer(Modifier.width(6.dp))

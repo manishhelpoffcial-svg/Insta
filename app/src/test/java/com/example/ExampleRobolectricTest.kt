@@ -510,4 +510,89 @@ class ExampleRobolectricTest {
         composeRule.waitForIdle()
         assertEquals("humansofny", submitted)
     }
+
+    @Test
+    fun `themeMode persists in storage and switches cleanly in viewModel`() {
+        val app = ApplicationProvider.getApplicationContext<android.app.Application>()
+        val storage = InstagramStorage(app)
+
+        storage.saveThemeMode(com.example.ui.theme.ThemeMode.LIGHT)
+        assertEquals(com.example.ui.theme.ThemeMode.LIGHT, storage.loadThemeMode())
+
+        storage.saveThemeMode(com.example.ui.theme.ThemeMode.DARK)
+        assertEquals(com.example.ui.theme.ThemeMode.DARK, storage.loadThemeMode())
+
+        val vm = com.example.ui.viewmodel.InstagramViewModel(app)
+        assertEquals(com.example.ui.theme.ThemeMode.DARK, vm.themeMode.value)
+        vm.setThemeMode(com.example.ui.theme.ThemeMode.LIGHT)
+        assertEquals(com.example.ui.theme.ThemeMode.LIGHT, vm.themeMode.value)
+        assertEquals(com.example.ui.theme.ThemeMode.LIGHT, storage.loadThemeMode())
+
+        vm.setThemeMode(com.example.ui.theme.ThemeMode.SYSTEM)
+        assertEquals(com.example.ui.theme.ThemeMode.SYSTEM, vm.themeMode.value)
+    }
+
+    @Test
+    fun `insights click opens smoothly without fake delay and renders theme-aware icons and spinner`() {
+        val app = ApplicationProvider.getApplicationContext<android.app.Application>()
+        val vm = com.example.ui.viewmodel.InstagramViewModel(app)
+
+        vm.openAccountInsightsFromClick(1)
+        val deadline = System.currentTimeMillis() + 3000L
+        while (vm.isInsightsLoading.value && System.currentTimeMillis() < deadline) {
+            org.robolectric.shadows.ShadowLooper.idleMainLooper()
+            Thread.sleep(20)
+        }
+        org.robolectric.shadows.ShadowLooper.idleMainLooper()
+        val firstRoute = vm.backStack.value.lastOrNull() as? com.example.ui.viewmodel.OverlayRoute.AccountInsights
+        assertEquals(1, firstRoute?.initialTab)
+        assertEquals(false, vm.isInsightsLoading.value)
+
+        vm.navigateBack()
+        vm.openAccountInsightsFromClick(2)
+        val cachedRoute = vm.backStack.value.lastOrNull() as? com.example.ui.viewmodel.OverlayRoute.AccountInsights
+        assertEquals(2, cachedRoute?.initialTab)
+        assertEquals(false, vm.isInsightsLoading.value)
+
+        var darkThemeIsDark: Boolean? = null
+        var lightThemeIsDark: Boolean? = null
+        composeRule.setContent {
+            androidx.compose.foundation.layout.Column {
+                MyApplicationTheme(darkTheme = true) {
+                    darkThemeIsDark = com.example.ui.theme.InstagramTheme.colors.isDark
+                    androidx.compose.foundation.layout.Row {
+                        com.example.ui.components.IgHomeIcon(filled = true)
+                        com.example.ui.components.IgReelsIcon(filled = false)
+                        com.example.ui.components.IgSearchIcon(bold = true)
+                        com.example.ui.components.IgBackIcon()
+                        com.example.ui.components.IgMoreDotsIcon()
+                        com.example.ui.components.InstagramCircularSpinner()
+                        androidx.compose.material3.Text(
+                            text = "Reel insights",
+                            style = com.example.ui.theme.IgTypography.screenHeading,
+                        )
+                    }
+                }
+                MyApplicationTheme(darkTheme = false) {
+                    lightThemeIsDark = com.example.ui.theme.InstagramTheme.colors.isDark
+                    androidx.compose.foundation.layout.Row {
+                        com.example.ui.components.IgHomeIcon(filled = false)
+                        com.example.ui.components.IgReelsIcon(filled = true)
+                        com.example.ui.components.IgSharePlaneIcon(filled = true)
+                        com.example.ui.components.IgHeartStrokeIcon(filled = true)
+                        com.example.ui.components.InstagramCircularSpinner()
+                        androidx.compose.material3.Text(
+                            text = "Light theme check",
+                            style = com.example.ui.theme.IgTypography.button,
+                        )
+                    }
+                }
+            }
+        }
+        composeRule.waitForIdle()
+        assertEquals(true, darkThemeIsDark)
+        assertEquals(false, lightThemeIsDark)
+        composeRule.onNodeWithText("Reel insights").assertIsDisplayed()
+        composeRule.onNodeWithText("Light theme check").assertIsDisplayed()
+    }
 }

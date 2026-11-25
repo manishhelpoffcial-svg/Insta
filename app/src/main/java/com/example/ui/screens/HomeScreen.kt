@@ -71,9 +71,12 @@ import com.example.data.model.StoryItem
 import com.example.data.network.ApifyRepository
 import com.example.ui.components.AvatarView
 import com.example.ui.components.DoubleTapHeartOverlay
+import com.example.ui.components.IgAddUserIcon
 import com.example.ui.components.IgBookmarkStrokeIcon
 import com.example.ui.components.IgCommentBubbleIcon
 import com.example.ui.components.IgHeartStrokeIcon
+import com.example.ui.components.IgMoreDotsIcon
+import com.example.ui.components.IgPlusIcon
 import com.example.ui.components.IgRepostLoopIcon
 import com.example.ui.components.IgSharePlaneIcon
 import com.example.ui.components.InstagramVideoPlayer
@@ -81,6 +84,7 @@ import com.example.ui.components.PostMediaImage
 import com.example.ui.components.VerifiedBlueBadge
 import com.example.ui.theme.GrandHotelFontFamily
 import com.example.ui.theme.IgNotifRed
+import com.example.ui.theme.IgTypography
 import com.example.ui.theme.InstagramTheme
 import kotlin.math.abs
 import kotlinx.coroutines.delay
@@ -149,11 +153,10 @@ fun HomeScreen(
                 onClick = { onStoryClick(stories.firstOrNull()?.id ?: "s0") },
                 modifier = Modifier.size(48.dp),
             ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_ig_create),
-                    contentDescription = "Create",
+                IgPlusIcon(
                     tint = colors.textPrimary,
-                    modifier = Modifier.size(26.dp),
+                    size = 22.dp,
+                    contentDescription = "Create",
                 )
             }
 
@@ -283,11 +286,10 @@ private fun StoryTrayItem(
                         .border(1.dp, colors.hairline, RoundedCornerShape(14.dp))
                         .padding(horizontal = 8.dp, vertical = 3.dp),
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.PersonAdd,
-                        contentDescription = "Follow suggestion",
+                    IgAddUserIcon(
                         tint = colors.textPrimary,
-                        modifier = Modifier.size(13.dp),
+                        size = 14.dp,
+                        contentDescription = "Follow suggestion",
                     )
                 }
             }
@@ -295,7 +297,7 @@ private fun StoryTrayItem(
         Spacer(Modifier.height(5.dp))
         Text(
             text = story.username,
-            fontSize = 12.sp,
+            style = IgTypography.secondaryMeta,
             lineHeight = 14.sp,
             color = colors.textPrimary,
             maxLines = 1,
@@ -380,8 +382,7 @@ private fun FeedPostCard(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = effectiveUsername,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp,
+                            style = IgTypography.username,
                             color = colors.textPrimary,
                         )
                         if (isVerified) {
@@ -392,7 +393,7 @@ private fun FeedPostCard(
                     if (post.subtitle.isNotBlank()) {
                         Text(
                             text = post.subtitle,
-                            fontSize = 12.sp,
+                            style = IgTypography.secondaryMeta,
                             color = colors.textSecondary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -411,8 +412,7 @@ private fun FeedPostCard(
                 ) {
                     Text(
                         text = if (post.isFollowing) "Following" else "Follow",
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 13.sp,
+                        style = IgTypography.button,
                         color = colors.textPrimary,
                     )
                 }
@@ -422,11 +422,10 @@ private fun FeedPostCard(
                 onClick = onMediaClick,
                 modifier = Modifier.size(36.dp),
             ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_ig_more_dots),
-                    contentDescription = "More options",
+                IgMoreDotsIcon(
                     tint = colors.textPrimary,
-                    modifier = Modifier.size(20.dp),
+                    size = 20.dp,
+                    contentDescription = "More options",
                 )
             }
         }
@@ -638,46 +637,45 @@ private fun FeedPostCard(
                         size = 18.dp,
                     )
                     Spacer(Modifier.width(7.dp))
+                        Text(
+                            text = buildAnnotatedString {
+                                withStyle(SpanStyle(color = colors.textPrimary)) {
+                                    append("Liked by ")
+                                }
+                                withStyle(SpanStyle(fontWeight = FontWeight.SemiBold, color = colors.textPrimary)) {
+                                    append(likedUsername)
+                                }
+                                if (post.likesCount > 1) {
+                                    withStyle(SpanStyle(color = colors.textPrimary)) {
+                                        append(" and others")
+                                    }
+                                }
+                            },
+                            style = IgTypography.postCaption,
+                        )
+                    }
+                }
+
+                if (post.caption.isNotBlank()) {
+                    val displayText = if (!captionExpanded && post.caption.length > 52) {
+                        post.caption.take(46).trimEnd() + "... more"
+                    } else {
+                        post.caption
+                    }
                     Text(
                         text = buildAnnotatedString {
-                            withStyle(SpanStyle(color = colors.textPrimary)) {
-                                append("Liked by ")
-                            }
                             withStyle(SpanStyle(fontWeight = FontWeight.SemiBold, color = colors.textPrimary)) {
-                                append(likedUsername)
+                                append(effectiveUsername)
+                                append(" ")
                             }
-                            if (post.likesCount > 1) {
-                                withStyle(SpanStyle(color = colors.textPrimary)) {
-                                    append(" and others")
-                                }
+                            withStyle(SpanStyle(color = colors.textPrimary)) {
+                                append(displayText)
                             }
                         },
-                        fontSize = 13.5.sp,
+                        style = IgTypography.postCaption,
+                        modifier = Modifier.clickable { captionExpanded = !captionExpanded },
                     )
                 }
-            }
-
-            if (post.caption.isNotBlank()) {
-                val displayText = if (!captionExpanded && post.caption.length > 52) {
-                    post.caption.take(46).trimEnd() + "... more"
-                } else {
-                    post.caption
-                }
-                Text(
-                    text = buildAnnotatedString {
-                        withStyle(SpanStyle(fontWeight = FontWeight.SemiBold, color = colors.textPrimary)) {
-                            append(effectiveUsername)
-                            append(" ")
-                        }
-                        withStyle(SpanStyle(color = colors.textPrimary)) {
-                            append(displayText)
-                        }
-                    },
-                    fontSize = 13.5.sp,
-                    lineHeight = 18.sp,
-                    modifier = Modifier.clickable { captionExpanded = !captionExpanded },
-                )
-            }
         }
     }
 }

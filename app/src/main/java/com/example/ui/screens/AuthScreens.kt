@@ -60,12 +60,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
+import com.example.ui.components.InstagramCircularSpinner
 import com.example.ui.theme.GrandHotelFontFamily
 import com.example.ui.theme.IgBlue
 import com.example.ui.theme.IgDarkElevated
 import com.example.ui.theme.IgDarkHairline
 import com.example.ui.theme.IgDarkSecondaryText
 import com.example.ui.theme.IgNotifRed
+import com.example.ui.theme.IgTypography
 import com.example.ui.theme.InstagramTheme
 
 @Composable
@@ -87,7 +89,7 @@ fun LoginScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(colors.background)
             .statusBarsPadding()
             .navigationBarsPadding()
             .imePadding()
@@ -123,15 +125,14 @@ fun LoginScreen(
                 Icon(
                     imageVector = Icons.Outlined.Lock,
                     contentDescription = "Locked",
-                    tint = Color.White,
+                    tint = colors.textPrimary,
                     modifier = Modifier.size(22.dp),
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = "Application Locked",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
+                    style = IgTypography.screenHeading,
+                    color = colors.textPrimary,
                 )
             }
 
@@ -139,14 +140,14 @@ fun LoginScreen(
 
             Text(
                 text = "Authorized Database Access Only",
-                fontSize = 13.sp,
-                color = Color(0xFFA8A8A8),
+                style = IgTypography.secondaryMeta.copy(fontSize = 13.sp),
+                color = colors.textSecondary,
                 textAlign = TextAlign.Center,
             )
             Text(
                 text = "Log in with your database account to unlock and access.",
-                fontSize = 12.sp,
-                color = Color(0xFF737373),
+                style = IgTypography.secondaryMeta,
+                color = colors.textSecondary,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 4.dp),
             )
@@ -186,18 +187,18 @@ fun LoginScreen(
             OutlinedTextField(
                 value = identifier,
                 onValueChange = { identifier = it },
-                label = { Text("Database Username or Email", fontSize = 13.sp) },
+                label = { Text("Database Username or Email", style = IgTypography.secondaryMeta.copy(fontSize = 13.sp)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF0095F6),
-                    unfocusedBorderColor = Color(0xFF363636),
-                    focusedContainerColor = Color(0xFF121212),
-                    unfocusedContainerColor = Color(0xFF121212),
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    focusedLabelColor = Color(0xFF0095F6),
-                    unfocusedLabelColor = Color(0xFFA8A8A8),
+                    focusedBorderColor = IgBlue,
+                    unfocusedBorderColor = colors.hairline,
+                    focusedContainerColor = colors.surfaceVariant,
+                    unfocusedContainerColor = colors.surfaceVariant,
+                    focusedTextColor = colors.textPrimary,
+                    unfocusedTextColor = colors.textPrimary,
+                    focusedLabelColor = IgBlue,
+                    unfocusedLabelColor = colors.textSecondary,
                 ),
                 shape = RoundedCornerShape(10.dp),
                 modifier = Modifier.fillMaxWidth(),
@@ -209,7 +210,7 @@ fun LoginScreen(
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
-                label = { Text("Database Password", fontSize = 13.sp) },
+                label = { Text("Database Password", style = IgTypography.secondaryMeta.copy(fontSize = 13.sp)) },
                 singleLine = true,
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
@@ -219,20 +220,20 @@ fun LoginScreen(
                         Icon(
                             imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
                             contentDescription = if (passwordVisible) "Hide password" else "Show password",
-                            tint = Color(0xFFA8A8A8),
+                            tint = colors.textSecondary,
                             modifier = Modifier.size(20.dp),
                         )
                     }
                 },
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF0095F6),
-                    unfocusedBorderColor = Color(0xFF363636),
-                    focusedContainerColor = Color(0xFF121212),
-                    unfocusedContainerColor = Color(0xFF121212),
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    focusedLabelColor = Color(0xFF0095F6),
-                    unfocusedLabelColor = Color(0xFFA8A8A8),
+                    focusedBorderColor = IgBlue,
+                    unfocusedBorderColor = colors.hairline,
+                    focusedContainerColor = colors.surfaceVariant,
+                    unfocusedContainerColor = colors.surfaceVariant,
+                    focusedTextColor = colors.textPrimary,
+                    unfocusedTextColor = colors.textPrimary,
+                    focusedLabelColor = IgBlue,
+                    unfocusedLabelColor = colors.textSecondary,
                 ),
                 shape = RoundedCornerShape(10.dp),
                 modifier = Modifier.fillMaxWidth(),
@@ -256,10 +257,10 @@ fun LoginScreen(
                     .height(48.dp),
             ) {
                 if (isLoading) {
-                    CircularProgressIndicator(
-                        color = Color.White,
+                    InstagramCircularSpinner(
+                        size = 20.dp,
                         strokeWidth = 2.dp,
-                        modifier = Modifier.size(20.dp),
+                        color = Color.White,
                     )
                 } else {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -270,7 +271,7 @@ fun LoginScreen(
                             modifier = Modifier.size(16.dp),
                         )
                         Spacer(Modifier.width(8.dp))
-                        Text("Unlock Application", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                        Text("Unlock Application", style = IgTypography.button)
                     }
                 }
             }
@@ -285,12 +286,12 @@ fun LoginScreen(
                 .padding(vertical = 20.dp, horizontal = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            HorizontalDivider(thickness = 0.5.dp, color = Color(0xFF262626))
+            HorizontalDivider(thickness = 0.5.dp, color = colors.hairline)
             Spacer(Modifier.height(14.dp))
             Text(
                 text = "Accounts are managed via Discord Bot / Admin Panel",
-                color = Color(0xFF737373),
-                fontSize = 11.sp,
+                color = colors.textSecondary,
+                style = IgTypography.chartLabel,
                 textAlign = TextAlign.Center,
             )
         }

@@ -20,11 +20,14 @@ import com.example.data.network.ApifyRepository
 import com.example.data.network.AuthSession
 import com.example.data.network.SubscriptionAccessResult
 import com.example.data.network.SupabaseAuthRepository
+import com.example.ui.theme.ThemeMode
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -103,6 +106,19 @@ class InstagramViewModel(application: Application) : AndroidViewModel(applicatio
 
     private val _fetchUiState = MutableStateFlow<FetchAccountUiState>(FetchAccountUiState.Idle)
     val fetchUiState: StateFlow<FetchAccountUiState> = _fetchUiState.asStateFlow()
+
+    private val _themeMode = MutableStateFlow(storage.loadThemeMode())
+    val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
+
+    private val _isInsightsLoading = MutableStateFlow(false)
+    val isInsightsLoading: StateFlow<Boolean> = _isInsightsLoading.asStateFlow()
+
+    private val preparedInsightKeys = mutableSetOf<String>()
+
+    fun setThemeMode(mode: ThemeMode) {
+        _themeMode.value = mode
+        storage.saveThemeMode(mode)
+    }
 
     init {
         storage.clearLegacyApifyToken()
@@ -307,15 +323,77 @@ class InstagramViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun openReelInsights(postId: String) {
         _isInsightsEditMode.value = false
+        preparedInsightKeys.add("reel_$postId")
         _backStack.update { it + OverlayRoute.ReelInsightsScreen(postId) }
     }
 
     fun openProfessionalDashboard() {
+        preparedInsightKeys.add("dashboard")
         _backStack.update { it + OverlayRoute.ProfessionalDashboard }
     }
 
     fun openAccountInsights(initialTab: Int = 0) {
+        preparedInsightKeys.add("account_$initialTab")
         _backStack.update { it + OverlayRoute.AccountInsights(initialTab) }
+    }
+
+    fun openReelInsightsFromClick(postId: String) {
+        launchInsightsTransition(
+            cacheKey = "reel_$postId",
+            onReady = { openReelInsights(postId) },
+            prepare = {
+                withContext(Dispatchers.IO) {
+                    // Hydrate latest persisted post/insights metrics before transition
+                    storage.loadState().posts.find { it.id == postId }?.insights
+                }
+            },
+        )
+    }
+
+    fun openProfessionalDashboardFromClick() {
+        launchInsightsTransition(
+            cacheKey = "dashboard",
+            onReady = { openProfessionalDashboard() },
+            prepare = {
+                withContext(Dispatchers.IO) {
+                    storage.loadState().accountInsights
+                }
+            },
+        )
+    }
+
+    fun openAccountInsightsFromClick(initialTab: Int = 0) {
+        launchInsightsTransition(
+            cacheKey = "account_$initialTab",
+            onReady = { openAccountInsights(initialTab) },
+            prepare = {
+                withContext(Dispatchers.IO) {
+                    storage.loadState().accountInsights
+                }
+            },
+        )
+    }
+
+    private fun launchInsightsTransition(
+        cacheKey: String,
+        onReady: () -> Unit,
+        prepare: suspend () -> Unit,
+    ) {
+        if (_isInsightsLoading.value) return
+        if (preparedInsightKeys.contains(cacheKey)) {
+            onReady()
+            return
+        }
+        _isInsightsLoading.value = true
+        viewModelScope.launch {
+            try {
+                prepare()
+                preparedInsightKeys.add(cacheKey)
+                onReady()
+            } finally {
+                _isInsightsLoading.value = false
+            }
+        }
     }
 
     fun openChat(threadId: String) {

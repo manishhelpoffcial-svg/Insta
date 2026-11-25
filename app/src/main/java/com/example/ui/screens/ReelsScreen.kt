@@ -62,12 +62,15 @@ import com.example.ui.components.DoubleTapHeartOverlay
 import com.example.ui.components.IgBookmarkStrokeIcon
 import com.example.ui.components.IgCommentBubbleIcon
 import com.example.ui.components.IgHeartStrokeIcon
+import com.example.ui.components.IgMoreDotsIcon
+import com.example.ui.components.IgPlusIcon
 import com.example.ui.components.IgRepostLoopIcon
 import com.example.ui.components.IgSharePlaneIcon
 import com.example.ui.components.InstagramVideoPlayer
 import com.example.ui.components.PostMediaImage
 import com.example.ui.components.VerifiedBlueBadge
 import com.example.ui.theme.IgNotifRed
+import com.example.ui.theme.IgTypography
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -151,11 +154,11 @@ fun ReelsScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = {}) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_ig_create),
-                    contentDescription = "Create Reel",
+                IgPlusIcon(
                     tint = Color.White,
-                    modifier = Modifier.size(26.dp),
+                    forceWhite = true,
+                    size = 22.dp,
+                    contentDescription = "Create Reel",
                 )
             }
             Spacer(Modifier.width(24.dp))
@@ -166,8 +169,7 @@ fun ReelsScreen(
                 Text(
                     text = "Reels",
                     color = if (selectedReelMode == "Reels") Color.White else Color.White.copy(alpha = 0.65f),
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = IgTypography.screenHeading.copy(fontSize = 19.sp),
                     modifier = Modifier.clickable { selectedReelMode = "Reels" },
                 )
                 Row(
@@ -177,8 +179,7 @@ fun ReelsScreen(
                     Text(
                         text = "Friends",
                         color = if (selectedReelMode == "Friends") Color.White else Color.White.copy(alpha = 0.72f),
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        style = IgTypography.screenHeading.copy(fontSize = 19.sp),
                     )
                     Spacer(Modifier.width(8.dp))
                     // Overlapping friend avatars
@@ -417,11 +418,10 @@ private fun ReelPage(
                 onClick = onMoreClick,
                 modifier = Modifier.size(36.dp),
             ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_ig_more_dots),
-                    contentDescription = "More",
+                IgMoreDotsIcon(
                     tint = Color.White,
-                    modifier = Modifier.size(22.dp),
+                    size = 21.dp,
+                    contentDescription = "More",
                 )
             }
 
@@ -467,8 +467,7 @@ private fun ReelPage(
                     Text(
                         text = post.authorUsername,
                         color = Color.White,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        style = IgTypography.username,
                     )
                     if (isVerified) {
                         Spacer(Modifier.width(5.dp))
@@ -486,8 +485,7 @@ private fun ReelPage(
                     Text(
                         text = if (post.isFollowing) "Following" else "Follow",
                         color = Color.White,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        style = IgTypography.button.copy(fontSize = 13.sp),
                     )
                 }
             }
@@ -496,7 +494,7 @@ private fun ReelPage(
             Text(
                 text = post.caption.ifBlank { "Watch till the end 🎬" },
                 color = Color.White,
-                fontSize = 14.sp,
+                style = IgTypography.postCaption,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -522,8 +520,7 @@ private fun ReelActionStat(
         Text(
             text = countText,
             color = Color.White,
-            fontSize = 12.5.sp,
-            fontWeight = FontWeight.Medium,
+            style = IgTypography.navLabel,
         )
     }
 }

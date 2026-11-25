@@ -58,10 +58,12 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.AccountInsightsData
 import com.example.data.model.ProfileData
 import com.example.ui.components.AccountInsightsEditModal
+import com.example.ui.components.IgBackIcon
 import com.example.ui.components.MetaVerifiedRosetteIcon
 import com.example.ui.components.rememberInsightsPalette
 import com.example.ui.theme.IgBoostBlue
 import com.example.ui.theme.IgLinkBlue
+import com.example.ui.theme.IgTypography
 
 @Composable
 fun ProfessionalDashboardScreen(
@@ -97,17 +99,15 @@ fun ProfessionalDashboardScreen(
                     onClick = onBack,
                     modifier = Modifier.testTag("dashboard_back_button"),
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
+                    IgBackIcon(
+                        size = 24.dp,
                         tint = palette.textPrimary,
                     )
                 }
                 Spacer(Modifier.width(4.dp))
                 Text(
                     text = "Your dashboard",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = IgTypography.screenHeading,
                     color = palette.textPrimary,
                 )
             }
@@ -141,13 +141,12 @@ fun ProfessionalDashboardScreen(
             ) {
                 Text(
                     text = "Insights",
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = IgTypography.insightsSectionHeading,
                     color = palette.textPrimary,
                 )
                 Text(
                     text = accountInsights.dateRange,
-                    fontSize = 13.5.sp,
+                    style = IgTypography.secondaryMeta,
                     color = palette.textSecondary,
                     modifier = Modifier
                         .clip(RoundedCornerShape(6.dp))
@@ -185,8 +184,7 @@ fun ProfessionalDashboardScreen(
             // Next steps
             Text(
                 text = "Next steps",
-                fontSize = 16.5.sp,
-                fontWeight = FontWeight.Bold,
+                style = IgTypography.insightsSectionHeading,
                 color = palette.textPrimary,
             )
             Spacer(Modifier.height(12.dp))
@@ -433,16 +431,14 @@ private fun DashboardMetricRow(
     ) {
         Text(
             text = label,
-            fontSize = 15.5.sp,
+            style = IgTypography.displayName,
             color = palette.textPrimary,
             modifier = Modifier.weight(1f),
         )
         Text(
             text = value,
-            fontSize = 15.5.sp,
-            fontWeight = FontWeight.Medium,
+            style = IgTypography.usernameMedium.copy(fontFeatureSettings = "tnum"),
             color = palette.textSecondary,
-            style = TextStyle(fontFeatureSettings = "tnum"),
         )
         Spacer(Modifier.width(8.dp))
         Icon(

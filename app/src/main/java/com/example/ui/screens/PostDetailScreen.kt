@@ -72,6 +72,7 @@ import com.example.data.model.ProfileData
 import com.example.data.network.ApifyRepository
 import com.example.ui.components.AvatarView
 import com.example.ui.components.DoubleTapHeartOverlay
+import com.example.ui.components.IgBackIcon
 import com.example.ui.components.IgBookmarkStrokeIcon
 import com.example.ui.components.IgCommentBubbleIcon
 import com.example.ui.components.IgEyeIcon
@@ -88,6 +89,7 @@ import com.example.ui.theme.IgDarkMutedTimestamp
 import com.example.ui.theme.IgDarkPostsBackground
 import com.example.ui.theme.IgNotifRed
 import com.example.ui.theme.IgOnlineGreen
+import com.example.ui.theme.IgTypography
 import com.example.ui.theme.InstagramTheme
 import kotlin.math.abs
 import kotlinx.coroutines.delay
@@ -150,18 +152,15 @@ fun PostDetailScreen(
                 onClick = onBack,
                 modifier = Modifier.testTag("post_detail_back"),
             ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_ig_back),
-                    contentDescription = "Back",
+                IgBackIcon(
+                    size = 24.dp,
                     tint = colors.textPrimary,
-                    modifier = Modifier.size(24.dp),
                 )
             }
             Spacer(Modifier.width(6.dp))
             Text(
                 text = "Posts",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
+                style = IgTypography.screenHeading,
                 color = colors.textPrimary,
             )
         }
@@ -489,8 +488,7 @@ private fun PostDetailFeedItem(
             ) {
                 Text(
                     text = "Boost post",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    style = IgTypography.button,
                 )
             }
         }

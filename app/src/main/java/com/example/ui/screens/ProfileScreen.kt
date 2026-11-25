@@ -57,12 +57,15 @@ import com.example.ui.components.AvatarView
 import com.example.ui.components.CreatorDashedBadge
 import com.example.ui.components.IgEyeIcon
 import com.example.ui.components.IgGridTabIcon
+import com.example.ui.components.IgPlusIcon
 import com.example.ui.components.IgReelsSquircleIcon
 import com.example.ui.components.IgRepostLoopIcon
 import com.example.ui.components.IgTaggedPersonIcon
+import com.example.ui.components.IgTwoLineMenuIcon
 import com.example.ui.components.PostMediaImage
 import com.example.ui.theme.IgLinkBlue
 import com.example.ui.theme.IgNotifRed
+import com.example.ui.theme.IgTypography
 import com.example.ui.theme.InstagramTheme
 
 @Composable
@@ -111,11 +114,10 @@ fun ProfileScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             IconButton(onClick = {}) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_ig_create),
-                    contentDescription = "Create",
+                IgPlusIcon(
                     tint = colors.textPrimary,
-                    modifier = Modifier.size(26.dp),
+                    size = 22.dp,
+                    contentDescription = "Create",
                 )
             }
 
@@ -135,8 +137,7 @@ fun ProfileScreen(
                 }
                 Text(
                     text = profile.username,
-                    fontSize = 19.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = IgTypography.screenHeading,
                     color = colors.textPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -170,11 +171,9 @@ fun ProfileScreen(
                     onClick = onOpenMenuClick,
                     modifier = Modifier.testTag("profile_top_menu_button"),
                 ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_ig_menu),
-                        contentDescription = "Menu",
+                    IgTwoLineMenuIcon(
+                        size = 24.dp,
                         tint = colors.textPrimary,
-                        modifier = Modifier.size(24.dp),
                     )
                 }
             }
@@ -223,8 +222,7 @@ fun ProfileScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = profile.displayName,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.SemiBold,
+                                style = IgTypography.username,
                                 color = colors.textPrimary,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -257,8 +255,7 @@ fun ProfileScreen(
                     if (profile.bio.isNotBlank()) {
                         Text(
                             text = profile.bio,
-                            fontSize = 13.5.sp,
-                            lineHeight = 19.sp,
+                            style = IgTypography.postCaption,
                             color = if (profile.bio == "N/A") colors.textSecondary else colors.textPrimary,
                         )
                     }
@@ -369,8 +366,7 @@ fun ProfileScreen(
                         ) {
                             Text(
                                 text = "Edit profile",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
+                                style = IgTypography.button,
                                 color = colors.textPrimary,
                             )
                         }
@@ -386,8 +382,7 @@ fun ProfileScreen(
                         ) {
                             Text(
                                 text = "Share profile",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
+                                style = IgTypography.button,
                                 color = colors.textPrimary,
                             )
                         }
@@ -567,13 +562,12 @@ private fun ProfileStatColumn(value: String, label: String) {
     Column(horizontalAlignment = Alignment.Start) {
         Text(
             text = value,
-            fontSize = 17.sp,
-            fontWeight = FontWeight.Bold,
+            style = IgTypography.profileStatValue,
             color = colors.textPrimary,
         )
         Text(
             text = label,
-            fontSize = 13.5.sp,
+            style = IgTypography.profileStatLabel,
             color = colors.textPrimary,
         )
     }

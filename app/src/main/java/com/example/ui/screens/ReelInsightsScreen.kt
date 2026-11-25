@@ -29,10 +29,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Schedule
@@ -46,7 +44,6 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -76,22 +73,23 @@ import com.example.data.model.ProfileData
 import com.example.data.model.ReelInsights
 import com.example.data.model.SourceShare
 import com.example.data.network.ApifyRepository
+import com.example.ui.components.IgBackIcon
 import com.example.ui.components.IgBookmarkStrokeIcon
 import com.example.ui.components.IgCommentBubbleIcon
 import com.example.ui.components.IgHeartStrokeIcon
+import com.example.ui.components.IgMoreDotsIcon
 import com.example.ui.components.IgRepostLoopIcon
 import com.example.ui.components.IgSharePlaneIcon
 import com.example.ui.components.InsightsUiColors
 import com.example.ui.components.PostMediaImage
 import com.example.ui.components.ReelInsightsEditModal
-import com.example.ui.components.ShimmerSummaryAndGraphPlaceholder
 import com.example.ui.components.ViewsOverTimeLineChart
 import com.example.ui.components.formatAxisLabels
 import com.example.ui.components.rememberInsightsPalette
 import com.example.ui.theme.IgInsightsMagenta
 import com.example.ui.theme.IgInsightsViolet
+import com.example.ui.theme.IgTypography
 import com.example.ui.theme.InstagramTheme
-import kotlinx.coroutines.delay
 import java.util.Locale
 
 @Composable
@@ -117,12 +115,6 @@ fun ReelInsightsScreen(
     var selectedTab by remember { mutableIntStateOf(0) } // 0 = Overview, 1 = Engagement, 2 = Audience
     var selectedAudienceFilter by remember { mutableStateOf("Age") } // "Age", "Country", "Gender"
     var showEditModal by remember { mutableStateOf(false) }
-    var showShimmer by remember(post.id) { mutableStateOf(true) }
-
-    LaunchedEffect(post.id) {
-        delay(600L)
-        showShimmer = false
-    }
 
     Column(
         modifier = Modifier
@@ -132,7 +124,7 @@ fun ReelInsightsScreen(
             .navigationBarsPadding()
             .imePadding(),
     ) {
-        // Top Header: <- Reel insights , trend icon, ⋮
+        // Top Header: <- Reel insights , trend icon, ...
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -146,17 +138,15 @@ fun ReelInsightsScreen(
                     onClick = onBack,
                     modifier = Modifier.testTag("insights_back_button"),
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
+                    IgBackIcon(
+                        size = 24.dp,
                         tint = palette.textPrimary,
                     )
                 }
                 Spacer(Modifier.width(4.dp))
                 Text(
                     text = "Reel insights",
-                    fontSize = 19.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    style = IgTypography.screenHeading,
                     color = palette.textPrimary,
                 )
             }
@@ -177,9 +167,8 @@ fun ReelInsightsScreen(
                     onClick = { showEditModal = true },
                     modifier = Modifier.testTag("insights_more_menu"),
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.MoreVert,
-                        contentDescription = "Edit Reel Insights",
+                    IgMoreDotsIcon(
+                        size = 22.dp,
                         tint = if (isEditMode || showEditModal) IgInsightsMagenta else palette.textPrimary,
                     )
                 }
@@ -339,7 +328,6 @@ fun ReelInsightsScreen(
                 0 -> OverviewTabContent(
                     insights = insights,
                     palette = palette,
-                    showShimmer = showShimmer,
                     isEditMode = isEditMode,
                     onUpdateInsights = onUpdateInsights,
                     onUpdateImpact = onUpdateImpact,
@@ -436,7 +424,6 @@ private fun InsightMiniStat(
 private fun OverviewTabContent(
     insights: ReelInsights,
     palette: InsightsUiColors,
-    showShimmer: Boolean,
     isEditMode: Boolean,
     onUpdateInsights: ((ReelInsights) -> ReelInsights) -> Unit,
     onUpdateImpact: (String, String?, String?) -> Unit,
@@ -444,17 +431,12 @@ private fun OverviewTabContent(
 ) {
     var viewsSeries by remember { mutableStateOf("All") }
 
-    if (showShimmer) {
-        ShimmerSummaryAndGraphPlaceholder(palette = palette)
-    }
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 18.dp),
     ) {
-        if (!showShimmer) {
-            SectionHeaderWithInfo(title = "Summary")
+        SectionHeaderWithInfo(title = "Summary")
             Spacer(Modifier.height(14.dp))
 
             // 2x2 Rounded Summary Cards
@@ -562,7 +544,6 @@ private fun OverviewTabContent(
         }
 
         Spacer(Modifier.height(26.dp))
-    }
 
     SectionHeaderWithInfo(title = "What impacts your views")
     Spacer(Modifier.height(4.dp))
@@ -671,9 +652,7 @@ private fun SummaryCard(
     ) {
         Text(
             text = label,
-            fontSize = 13.5.sp,
-            fontWeight = FontWeight.Normal,
-            fontFamily = FontFamily.SansSerif,
+            style = IgTypography.secondaryMeta,
             color = palette.textSecondary,
             maxLines = 1,
         )
@@ -682,11 +661,7 @@ private fun SummaryCard(
             InlineEditableNumber(
                 value = value,
                 onValueChange = onValueChange,
-                textStyle = TextStyle(
-                    fontSize = 21.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    fontFamily = FontFamily.SansSerif,
-                    letterSpacing = (-0.2).sp,
+                textStyle = IgTypography.insightsMainNumber.copy(
                     color = palette.textPrimary,
                     fontFeatureSettings = "tnum",
                 ),
@@ -695,12 +670,11 @@ private fun SummaryCard(
         } else {
             Text(
                 text = value,
-                fontSize = 21.sp,
-                fontWeight = FontWeight.SemiBold,
-                fontFamily = FontFamily.SansSerif,
-                letterSpacing = (-0.2).sp,
+                style = IgTypography.insightsMainNumber.copy(
+                    fontFeatureSettings = "tnum",
+                ),
                 color = palette.textPrimary,
-                style = TextStyle(fontFeatureSettings = "tnum"),
+                maxLines = 1,
             )
         }
     }
@@ -1401,8 +1375,7 @@ private fun SectionHeaderWithInfo(title: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
             text = title,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.SemiBold,
+            style = IgTypography.insightsSectionHeading,
             color = palette.textPrimary,
         )
         Spacer(Modifier.width(6.dp))

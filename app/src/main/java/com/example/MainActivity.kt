@@ -5,12 +5,19 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -47,6 +54,7 @@ import com.example.ui.components.EditNoteDialog
 import com.example.ui.components.EditProfileBottomSheet
 import com.example.ui.components.FetchInstagramAccountModal
 import com.example.ui.components.InstagramBottomBar
+import com.example.ui.components.InstagramCircularSpinner
 import com.example.ui.components.StoryViewerOverlay
 import com.example.ui.screens.AccessGatedScreen
 import com.example.ui.screens.AccountFetcherScreen
@@ -78,8 +86,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            MyApplicationTheme {
-                InstagramAppRoot()
+            val appViewModel: InstagramViewModel = viewModel()
+            val themeMode by appViewModel.themeMode.collectAsStateWithLifecycle()
+            MyApplicationTheme(themeMode = themeMode) {
+                InstagramAppRoot(viewModel = appViewModel)
             }
         }
     }
@@ -99,11 +109,7 @@ fun InstagramAppRoot(
                     .background(InstagramTheme.colors.background),
                 contentAlignment = Alignment.Center,
             ) {
-                androidx.compose.material3.CircularProgressIndicator(
-                    color = IgBlue,
-                    strokeWidth = 2.dp,
-                    modifier = Modifier.size(36.dp),
-                )
+                InstagramCircularSpinner(size = 32.dp)
             }
         }
         is AuthUiState.Unauthenticated -> {
@@ -166,13 +172,16 @@ fun InstagramCloneApp(
     val showEditProfileSheet by viewModel.showEditProfileSheet.collectAsStateWithLifecycle()
     val showNoteEditor by viewModel.showNoteEditor.collectAsStateWithLifecycle()
     val isInsightsEditMode by viewModel.isInsightsEditMode.collectAsStateWithLifecycle()
+    val isInsightsLoading by viewModel.isInsightsLoading.collectAsStateWithLifecycle()
+    val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
 
     val colors = InstagramTheme.colors
+    val reducedMotion = InstagramTheme.isReducedMotion
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
     val currentOverlay = backStack.lastOrNull()
-    val hasModalOpen = showFetchModal || activeCommentsPostId != null || showEditProfileSheet || showNoteEditor
+    val hasModalOpen = showFetchModal || activeCommentsPostId != null || showEditProfileSheet || showNoteEditor || isInsightsLoading
     var showSplash by rememberSaveable { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
@@ -205,230 +214,255 @@ fun InstagramCloneApp(
                 }
             },
         ) { innerPadding ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .then(
-                        if (currentOverlay == null) {
-                            Modifier
+            Box(modifier = Modifier.fillMaxSize()) {
+                AnimatedContent(
+                    targetState = currentOverlay,
+                    contentKey = { route ->
+                        when (route) {
+                            null -> "root_tabs"
+                            is OverlayRoute.PostDetail -> "post_detail_${route.postId}"
+                            is OverlayRoute.ReelInsightsScreen -> "reel_insights_${route.postId}"
+                            is OverlayRoute.ChatConversation -> "chat_${route.threadId}"
+                            is OverlayRoute.StoryViewer -> "story_${route.storyId}"
+                            is OverlayRoute.CreatorProfile -> "creator_${route.username}"
+                            is OverlayRoute.ProfessionalDashboard -> "dashboard"
+                            is OverlayRoute.AccountInsights -> "account_insights_${route.initialTab}"
+                        }
+                    },
+                    transitionSpec = {
+                        if (reducedMotion) {
+                            fadeIn(tween(0)) togetherWith fadeOut(tween(0))
+                        } else if (targetState != null && initialState == null) {
+                            (slideInHorizontally(tween(240)) { it / 5 } + fadeIn(tween(220))) togetherWith
+                                fadeOut(tween(180))
+                        } else if (targetState == null && initialState != null) {
+                            fadeIn(tween(200)) togetherWith
+                                (slideOutHorizontally(tween(220)) { it / 5 } + fadeOut(tween(180)))
                         } else {
-                            Modifier
+                            (slideInHorizontally(tween(220)) { it / 6 } + fadeIn(tween(200))) togetherWith
+                                (slideOutHorizontally(tween(180)) { -it / 10 } + fadeOut(tween(160)))
                         }
-                    ),
-            ) {
-                if (currentOverlay != null) {
-                    when (currentOverlay) {
-                        is OverlayRoute.PostDetail -> {
-                            val feedIds = currentOverlay.feedPostIds
-                            val resolvedPosts = if (!feedIds.isNullOrEmpty()) {
-                                val postMap = appState.posts.associateBy { it.id }
-                                feedIds.mapNotNull { postMap[it] }
-                            } else {
-                                val post = appState.posts.find { it.id == currentOverlay.postId }
-                                if (post != null && post.isOwnPost) {
-                                    appState.posts.filter { it.isOwnPost }
+                    },
+                    label = "overlay_navigation_transition",
+                ) { overlay ->
+                    if (overlay != null) {
+                        when (overlay) {
+                            is OverlayRoute.PostDetail -> {
+                                val feedIds = overlay.feedPostIds
+                                val resolvedPosts = if (!feedIds.isNullOrEmpty()) {
+                                    val postMap = appState.posts.associateBy { it.id }
+                                    feedIds.mapNotNull { postMap[it] }
                                 } else {
-                                    appState.posts
+                                    val post = appState.posts.find { it.id == overlay.postId }
+                                    if (post != null && post.isOwnPost) {
+                                        appState.posts.filter { it.isOwnPost }
+                                    } else {
+                                        appState.posts
+                                    }
+                                }.ifEmpty { appState.posts }
+
+                                if (resolvedPosts.isNotEmpty()) {
+                                    PostDetailScreen(
+                                        posts = resolvedPosts,
+                                        initialPostId = overlay.postId,
+                                        profile = appState.profile,
+                                        isScreenActive = !hasModalOpen,
+                                        onBack = { viewModel.popBackStack() },
+                                        onViewInsights = { postId -> viewModel.openReelInsightsFromClick(postId) },
+                                        onLikeClick = { postId -> viewModel.toggleLike(postId) },
+                                        onDoubleTapLike = { postId -> viewModel.likePostIfUnliked(postId) },
+                                        onCommentClick = { postId -> viewModel.openComments(postId) },
+                                        onRepostClick = { postId -> viewModel.toggleRepost(postId) },
+                                        onSaveClick = { postId -> viewModel.toggleSave(postId) },
+                                        onAuthorClick = viewModel::openCreatorProfile,
+                                        onUpdatePostDetails = viewModel::updatePostDetails,
+                                    )
                                 }
-                            }.ifEmpty { appState.posts }
-
-                            if (resolvedPosts.isNotEmpty()) {
-                                PostDetailScreen(
-                                    posts = resolvedPosts,
-                                    initialPostId = currentOverlay.postId,
-                                    profile = appState.profile,
-                                    isScreenActive = !hasModalOpen,
-                                    onBack = { viewModel.popBackStack() },
-                                    onViewInsights = { postId -> viewModel.openReelInsights(postId) },
-                                    onLikeClick = { postId -> viewModel.toggleLike(postId) },
-                                    onDoubleTapLike = { postId -> viewModel.likePostIfUnliked(postId) },
-                                    onCommentClick = { postId -> viewModel.openComments(postId) },
-                                    onRepostClick = { postId -> viewModel.toggleRepost(postId) },
-                                    onSaveClick = { postId -> viewModel.toggleSave(postId) },
-                                    onAuthorClick = viewModel::openCreatorProfile,
-                                    onUpdatePostDetails = viewModel::updatePostDetails,
-                                )
                             }
-                        }
 
-                        is OverlayRoute.ReelInsightsScreen -> {
-                            val post = appState.posts.find { it.id == currentOverlay.postId }
-                                ?: appState.posts.firstOrNull()
-                            if (post != null) {
-                                ReelInsightsScreen(
-                                    post = post,
-                                    profile = appState.profile,
-                                    isEditMode = isInsightsEditMode,
-                                    onToggleEditMode = viewModel::toggleInsightsEditMode,
-                                    onBack = { viewModel.popBackStack() },
-                                    onOpenAccountInsights = { viewModel.openAccountInsights(0) },
-                                    onUpdateInsights = { transform ->
-                                        viewModel.updatePostInsights(post.id, transform)
-                                    },
-                                    onUpdateImpact = { id, pct, status ->
-                                        viewModel.updateImpactMetric(post.id, id, pct, status)
-                                    },
-                                    onUpdateTopSource = { idx, label, pct ->
-                                        viewModel.updateTopSource(post.id, idx, label, pct)
-                                    },
-                                    onUpdateDemographic = { cat, idx, label, pct ->
-                                        viewModel.updateDemographicItem(post.id, cat, idx, label, pct)
-                                    },
-                                    onUpdateLikeCurvePoint = { idx, value ->
-                                        viewModel.updateLikeCurvePoint(post.id, idx, value)
-                                    },
-                                    onUpdateProfile = viewModel::updateProfile,
-                                    onUpdatePostDetails = { audio, liker ->
-                                        viewModel.updatePostDetails(post.id, audio, liker)
-                                    },
-                                )
+                            is OverlayRoute.ReelInsightsScreen -> {
+                                val post = appState.posts.find { it.id == overlay.postId }
+                                    ?: appState.posts.firstOrNull()
+                                if (post != null) {
+                                    ReelInsightsScreen(
+                                        post = post,
+                                        profile = appState.profile,
+                                        isEditMode = isInsightsEditMode,
+                                        onToggleEditMode = viewModel::toggleInsightsEditMode,
+                                        onBack = { viewModel.popBackStack() },
+                                        onOpenAccountInsights = { viewModel.openAccountInsightsFromClick(0) },
+                                        onUpdateInsights = { transform ->
+                                            viewModel.updatePostInsights(post.id, transform)
+                                        },
+                                        onUpdateImpact = { id, pct, status ->
+                                            viewModel.updateImpactMetric(post.id, id, pct, status)
+                                        },
+                                        onUpdateTopSource = { idx, label, pct ->
+                                            viewModel.updateTopSource(post.id, idx, label, pct)
+                                        },
+                                        onUpdateDemographic = { cat, idx, label, pct ->
+                                            viewModel.updateDemographicItem(post.id, cat, idx, label, pct)
+                                        },
+                                        onUpdateLikeCurvePoint = { idx, value ->
+                                            viewModel.updateLikeCurvePoint(post.id, idx, value)
+                                        },
+                                        onUpdateProfile = viewModel::updateProfile,
+                                        onUpdatePostDetails = { audio, liker ->
+                                            viewModel.updatePostDetails(post.id, audio, liker)
+                                        },
+                                    )
+                                }
                             }
-                        }
 
-                        is OverlayRoute.ChatConversation -> {
-                            val thread = appState.dmThreads.find { it.id == currentOverlay.threadId }
-                                ?: appState.dmThreads.firstOrNull()
-                            if (thread != null) {
-                                ChatConversationScreen(
-                                    thread = thread,
-                                    profile = appState.profile,
-                                    onBack = { viewModel.popBackStack() },
-                                    onSendMessage = { msg -> viewModel.sendDmMessage(thread.id, msg) },
-                                )
+                            is OverlayRoute.ChatConversation -> {
+                                val thread = appState.dmThreads.find { it.id == overlay.threadId }
+                                    ?: appState.dmThreads.firstOrNull()
+                                if (thread != null) {
+                                    ChatConversationScreen(
+                                        thread = thread,
+                                        profile = appState.profile,
+                                        onBack = { viewModel.popBackStack() },
+                                        onSendMessage = { msg -> viewModel.sendDmMessage(thread.id, msg) },
+                                    )
+                                }
                             }
-                        }
 
-                        is OverlayRoute.StoryViewer -> {
-                            val story = appState.stories.find { it.id == currentOverlay.storyId }
-                                ?: appState.stories.firstOrNull()
-                            if (story != null) {
-                                StoryViewerOverlay(
-                                    story = story,
+                            is OverlayRoute.StoryViewer -> {
+                                val story = appState.stories.find { it.id == overlay.storyId }
+                                    ?: appState.stories.firstOrNull()
+                                if (story != null) {
+                                    StoryViewerOverlay(
+                                        story = story,
+                                        ownProfile = appState.profile,
+                                        onClose = { viewModel.popBackStack() },
+                                        onAuthorClick = { username ->
+                                            viewModel.popBackStack()
+                                            viewModel.openCreatorProfile(username)
+                                        },
+                                    )
+                                }
+                            }
+
+                            is OverlayRoute.CreatorProfile -> {
+                                CreatorProfileScreen(
+                                    username = overlay.username,
                                     ownProfile = appState.profile,
-                                    onClose = { viewModel.popBackStack() },
-                                    onAuthorClick = { username ->
-                                        viewModel.popBackStack()
-                                        viewModel.openCreatorProfile(username)
+                                    posts = appState.posts,
+                                    onBack = { viewModel.popBackStack() },
+                                    onPostClick = { postId, gridIds ->
+                                        viewModel.openPostDetail(postId, gridIds)
                                     },
+                                    onFollowClick = viewModel::toggleFollowAuthor,
+                                    onMessageClick = viewModel::openDmWithCreator,
+                                )
+                            }
+
+                            is OverlayRoute.ProfessionalDashboard -> {
+                                ProfessionalDashboardScreen(
+                                    profile = appState.profile,
+                                    accountInsights = appState.accountInsights,
+                                    onBack = { viewModel.popBackStack() },
+                                    onOpenInsightsTab = { tabIdx ->
+                                        viewModel.openAccountInsightsFromClick(tabIdx)
+                                    },
+                                    onUpdateAccountInsights = viewModel::updateAccountInsights,
+                                )
+                            }
+
+                            is OverlayRoute.AccountInsights -> {
+                                AccountInsightsScreen(
+                                    initialTab = overlay.initialTab,
+                                    profile = appState.profile,
+                                    posts = appState.posts,
+                                    accountInsights = appState.accountInsights,
+                                    onBack = { viewModel.popBackStack() },
+                                    onOpenReelInsights = viewModel::openReelInsightsFromClick,
+                                    onUpdateAccountInsights = viewModel::updateAccountInsights,
                                 )
                             }
                         }
+                    } else {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth()
+                                    .paddingBottomBarOnly(innerPadding),
+                            ) {
+                                Crossfade(
+                                    targetState = activeTab,
+                                    animationSpec = tween(durationMillis = if (reducedMotion) 0 else 150),
+                                    label = "main_tab_crossfade",
+                                ) { tab ->
+                                    when (tab) {
+                                        MainTab.HOME -> HomeScreen(
+                                            profile = appState.profile,
+                                            stories = appState.stories,
+                                            posts = appState.posts,
+                                            isScreenActive = !hasModalOpen && activeTab == MainTab.HOME,
+                                            onStoryClick = viewModel::openStory,
+                                            onLikeClick = viewModel::toggleLike,
+                                            onDoubleTapLike = viewModel::likePostIfUnliked,
+                                            onCommentClick = viewModel::openComments,
+                                            onRepostClick = viewModel::toggleRepost,
+                                            onSaveClick = viewModel::toggleSave,
+                                            onFollowClick = viewModel::toggleFollowAuthor,
+                                            onAuthorClick = viewModel::openCreatorProfile,
+                                            onPostClick = viewModel::openPostDetail,
+                                            onNotificationsClick = {
+                                                scope.launch {
+                                                    snackbarHostState.showSnackbar("You're all caught up on notifications")
+                                                }
+                                            },
+                                        )
 
-                        is OverlayRoute.CreatorProfile -> {
-                            CreatorProfileScreen(
-                                username = currentOverlay.username,
-                                ownProfile = appState.profile,
-                                posts = appState.posts,
-                                onBack = { viewModel.popBackStack() },
-                                onPostClick = { postId, gridIds ->
-                                    viewModel.openPostDetail(postId, gridIds)
-                                },
-                                onFollowClick = viewModel::toggleFollowAuthor,
-                                onMessageClick = viewModel::openDmWithCreator,
-                            )
-                        }
+                                        MainTab.REELS -> ReelsScreen(
+                                            posts = appState.posts,
+                                            isScreenActive = !hasModalOpen && activeTab == MainTab.REELS,
+                                            onLikeClick = viewModel::toggleLike,
+                                            onDoubleTapLike = viewModel::likePostIfUnliked,
+                                            onCommentClick = viewModel::openComments,
+                                            onRepostClick = viewModel::toggleRepost,
+                                            onSaveClick = viewModel::toggleSave,
+                                            onFollowClick = viewModel::toggleFollowAuthor,
+                                            onAuthorClick = viewModel::openCreatorProfile,
+                                            onOpenInsights = viewModel::openReelInsightsFromClick,
+                                        )
 
-                        is OverlayRoute.ProfessionalDashboard -> {
-                            ProfessionalDashboardScreen(
-                                profile = appState.profile,
-                                accountInsights = appState.accountInsights,
-                                onBack = { viewModel.popBackStack() },
-                                onOpenInsightsTab = { tabIdx ->
-                                    viewModel.openAccountInsights(tabIdx)
-                                },
-                                onUpdateAccountInsights = viewModel::updateAccountInsights,
-                            )
-                        }
+                                        MainTab.MESSAGES -> AccountFetcherScreen(
+                                            fetchState = fetchUiState,
+                                            onFetchAccount = viewModel::fetchAccountFromApify,
+                                            onInputChanged = viewModel::resetFetchState,
+                                        )
 
-                        is OverlayRoute.AccountInsights -> {
-                            AccountInsightsScreen(
-                                initialTab = currentOverlay.initialTab,
-                                profile = appState.profile,
-                                posts = appState.posts,
-                                accountInsights = appState.accountInsights,
-                                onBack = { viewModel.popBackStack() },
-                                onOpenReelInsights = viewModel::openReelInsights,
-                                onUpdateAccountInsights = viewModel::updateAccountInsights,
-                            )
-                        }
-                    }
-                } else {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth()
-                                .paddingBottomBarOnly(innerPadding),
-                        ) {
-                            Crossfade(targetState = activeTab, label = "main_tab_crossfade") { tab ->
-                                when (tab) {
-                                    MainTab.HOME -> HomeScreen(
-                                        profile = appState.profile,
-                                        stories = appState.stories,
-                                        posts = appState.posts,
-                                        isScreenActive = !hasModalOpen && activeTab == MainTab.HOME,
-                                        onStoryClick = viewModel::openStory,
-                                        onLikeClick = viewModel::toggleLike,
-                                        onDoubleTapLike = viewModel::likePostIfUnliked,
-                                        onCommentClick = viewModel::openComments,
-                                        onRepostClick = viewModel::toggleRepost,
-                                        onSaveClick = viewModel::toggleSave,
-                                        onFollowClick = viewModel::toggleFollowAuthor,
-                                        onAuthorClick = viewModel::openCreatorProfile,
-                                        onPostClick = viewModel::openPostDetail,
-                                        onNotificationsClick = {
-                                            scope.launch {
-                                                snackbarHostState.showSnackbar("You're all caught up on notifications")
-                                            }
-                                        },
-                                    )
+                                        MainTab.EXPLORE -> ExploreScreen(
+                                            posts = appState.posts,
+                                            onPostClick = viewModel::openPostDetail,
+                                        )
 
-                                    MainTab.REELS -> ReelsScreen(
-                                        posts = appState.posts,
-                                        isScreenActive = !hasModalOpen && activeTab == MainTab.REELS,
-                                        onLikeClick = viewModel::toggleLike,
-                                        onDoubleTapLike = viewModel::likePostIfUnliked,
-                                        onCommentClick = viewModel::openComments,
-                                        onRepostClick = viewModel::toggleRepost,
-                                        onSaveClick = viewModel::toggleSave,
-                                        onFollowClick = viewModel::toggleFollowAuthor,
-                                        onAuthorClick = viewModel::openCreatorProfile,
-                                        onOpenInsights = viewModel::openReelInsights,
-                                    )
-
-                                    MainTab.MESSAGES -> AccountFetcherScreen(
-                                        fetchState = fetchUiState,
-                                        onFetchAccount = viewModel::fetchAccountFromApify,
-                                        onInputChanged = viewModel::resetFetchState,
-                                    )
-
-                                    MainTab.EXPLORE -> ExploreScreen(
-                                        posts = appState.posts,
-                                        onPostClick = viewModel::openPostDetail,
-                                    )
-
-                                    MainTab.PROFILE -> ProfileScreen(
-                                        profile = appState.profile,
-                                        posts = appState.posts,
-                                        onEditProfileClick = viewModel::openEditProfileSheet,
-                                        onPostClick = { postId, gridIds ->
-                                            viewModel.openPostDetail(postId, gridIds)
-                                        },
-                                        onOpenDashboard = viewModel::openProfessionalDashboard,
-                                        onOpenMenuClick = viewModel::openFetchModal,
-                                        onShareProfileClick = {
-                                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                                type = "text/plain"
-                                                putExtra(
-                                                    Intent.EXTRA_TEXT,
-                                                    "Check out @${appState.profile.username} on Instagram: https://instagram.com/${appState.profile.username}"
+                                        MainTab.PROFILE -> ProfileScreen(
+                                            profile = appState.profile,
+                                            posts = appState.posts,
+                                            onEditProfileClick = viewModel::openEditProfileSheet,
+                                            onPostClick = { postId, gridIds ->
+                                                viewModel.openPostDetail(postId, gridIds)
+                                            },
+                                            onOpenDashboard = viewModel::openProfessionalDashboardFromClick,
+                                            onOpenMenuClick = viewModel::openFetchModal,
+                                            onShareProfileClick = {
+                                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                                    type = "text/plain"
+                                                    putExtra(
+                                                        Intent.EXTRA_TEXT,
+                                                        "Check out @${appState.profile.username} on Instagram: https://instagram.com/${appState.profile.username}"
+                                                    )
+                                                }
+                                                context.startActivity(
+                                                    Intent.createChooser(shareIntent, "Share profile")
                                                 )
-                                            }
-                                            context.startActivity(
-                                                Intent.createChooser(shareIntent, "Share profile")
-                                            )
-                                        },
-                                    )
+                                            },
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -438,7 +472,7 @@ fun InstagramCloneApp(
         }
     }
 
-    // Triple-tap minimal username box
+    // Triple-tap minimal username box + appearance switch + logout
     if (showFetchModal) {
         FetchInstagramAccountModal(
             fetchState = fetchUiState,
@@ -446,7 +480,28 @@ fun InstagramCloneApp(
             onSubmitUsername = viewModel::fetchAccountFromApify,
             onInputChanged = viewModel::resetFetchState,
             onLogoutClick = viewModel::logout,
+            themeMode = themeMode,
+            onSelectThemeMode = viewModel::setThemeMode,
         )
+    }
+
+    // Minimal centered circular spinner while Insights loads cleanly over stable current screen
+    if (isInsightsLoading) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                ) {}
+                .testTag("insights_loading_overlay"),
+            contentAlignment = Alignment.Center,
+        ) {
+            InstagramCircularSpinner(
+                size = 30.dp,
+                strokeWidth = 2.4.dp,
+            )
+        }
     }
 
     // Comments Sheet
@@ -491,15 +546,15 @@ fun InstagramCloneApp(
         )
     }
 
-    // Cold-launch #0B0D10 Splash Screen (400ms, centered 84dp logo with 20dp corner radius)
+    // Cold-launch Splash Screen adapting smoothly to active light or dark theme
     AnimatedVisibility(
         visible = showSplash,
-        exit = fadeOut(animationSpec = tween(durationMillis = 250)),
+        exit = fadeOut(animationSpec = tween(durationMillis = if (reducedMotion) 0 else 220)),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFF0B0D10))
+                .background(colors.background)
                 .testTag("app_splash_overlay"),
             contentAlignment = Alignment.Center,
         ) {

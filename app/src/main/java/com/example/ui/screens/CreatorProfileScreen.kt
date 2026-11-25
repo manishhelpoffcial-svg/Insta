@@ -47,14 +47,17 @@ import com.example.R
 import com.example.data.model.MediaPost
 import com.example.data.model.ProfileData
 import com.example.ui.components.AvatarView
+import com.example.ui.components.IgBackIcon
 import com.example.ui.components.IgEyeIcon
 import com.example.ui.components.IgGridTabIcon
+import com.example.ui.components.IgMoreDotsIcon
 import com.example.ui.components.IgReelsSquircleIcon
 import com.example.ui.components.IgRepostLoopIcon
 import com.example.ui.components.IgTaggedPersonIcon
 import com.example.ui.components.PostMediaImage
 import com.example.ui.components.VerifiedBlueBadge
 import com.example.ui.theme.IgBoostBlue
+import com.example.ui.theme.IgTypography
 import com.example.ui.theme.InstagramTheme
 
 @Composable
@@ -108,11 +111,10 @@ fun CreatorProfileScreen(
                 onClick = onBack,
                 modifier = Modifier.testTag("creator_profile_back"),
             ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_ig_back),
-                    contentDescription = "Back",
+                IgBackIcon(
                     tint = colors.textPrimary,
-                    modifier = Modifier.size(24.dp),
+                    size = 22.dp,
+                    contentDescription = "Back",
                 )
             }
             Spacer(Modifier.width(4.dp))
@@ -122,8 +124,7 @@ fun CreatorProfileScreen(
             ) {
                 Text(
                     text = creator.username,
-                    fontSize = 19.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = IgTypography.screenHeading,
                     color = colors.textPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -134,11 +135,10 @@ fun CreatorProfileScreen(
                 }
             }
             IconButton(onClick = {}) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_ig_more_dots),
-                    contentDescription = "More options",
+                IgMoreDotsIcon(
                     tint = colors.textPrimary,
-                    modifier = Modifier.size(20.dp),
+                    size = 20.dp,
+                    contentDescription = "More options",
                 )
             }
         }
@@ -164,8 +164,7 @@ fun CreatorProfileScreen(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = creator.displayName,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold,
+                            style = IgTypography.username,
                             color = colors.textPrimary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -193,8 +192,7 @@ fun CreatorProfileScreen(
                     if (creator.bio.isNotBlank()) {
                         Text(
                             text = creator.bio,
-                            fontSize = 13.5.sp,
-                            lineHeight = 19.sp,
+                            style = IgTypography.postCaption,
                             color = colors.textPrimary,
                         )
                     }
@@ -395,13 +393,12 @@ private fun CreatorStatColumn(value: String, label: String) {
     Column(horizontalAlignment = Alignment.Start) {
         Text(
             text = value,
-            fontSize = 17.sp,
-            fontWeight = FontWeight.Bold,
+            style = IgTypography.profileStatValue,
             color = colors.textPrimary,
         )
         Text(
             text = label,
-            fontSize = 13.5.sp,
+            style = IgTypography.profileStatLabel,
             color = colors.textPrimary,
         )
     }

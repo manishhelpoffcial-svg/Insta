@@ -71,6 +71,9 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.DmThread
 import com.example.data.model.ProfileData
 import com.example.ui.components.AvatarView
+import com.example.ui.components.IgBackIcon
+import com.example.ui.components.IgCameraIcon
+import com.example.ui.components.IgComposeIcon
 import com.example.ui.components.MetaAiRingIcon
 import com.example.ui.components.PostMediaImage
 import com.example.ui.components.VerifiedBlueBadge
@@ -78,6 +81,7 @@ import com.example.ui.theme.IgBoostBlue
 import com.example.ui.theme.IgLinkBlue
 import com.example.ui.theme.IgNotifRed
 import com.example.ui.theme.IgOnlineGreen
+import com.example.ui.theme.IgTypography
 import com.example.ui.theme.InstagramTheme
 
 @Composable
@@ -134,8 +138,7 @@ fun MessagesScreen(
             ) {
                 Text(
                     text = if (profile.username.length > 10) profile.username.take(10) + "..." else profile.username,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = IgTypography.screenHeading,
                     color = colors.textPrimary,
                     maxLines = 1,
                 )
@@ -165,11 +168,10 @@ fun MessagesScreen(
                     )
                 }
                 IconButton(onClick = { onThreadClick("dm_meta_ai") }) {
-                    Icon(
-                        imageVector = Icons.Outlined.EditNote,
-                        contentDescription = "New Message",
+                    IgComposeIcon(
                         tint = colors.textPrimary,
-                        modifier = Modifier.size(26.dp),
+                        size = 22.dp,
+                        contentDescription = "New Message",
                     )
                 }
             }
@@ -550,10 +552,10 @@ fun ChatConversationScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack, modifier = Modifier.testTag("chat_back_button")) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
+                IgBackIcon(
                     tint = colors.textPrimary,
+                    size = 22.dp,
+                    contentDescription = "Back",
                 )
             }
             AvatarView(
@@ -639,11 +641,11 @@ fun ChatConversationScreen(
                     .background(IgBoostBlue),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.CameraAlt,
-                    contentDescription = "Camera",
+                IgCameraIcon(
                     tint = Color.White,
-                    modifier = Modifier.size(18.dp),
+                    forceWhite = true,
+                    size = 18.dp,
+                    contentDescription = "Camera",
                 )
             }
             Spacer(Modifier.width(10.dp))

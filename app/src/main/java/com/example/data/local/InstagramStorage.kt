@@ -5,6 +5,7 @@ import com.example.data.DefaultSampleData
 import com.example.data.model.AppDataState
 import com.example.data.network.AuthSession
 import com.example.data.network.SubscriptionAccessResult
+import com.example.ui.theme.ThemeMode
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 
@@ -189,7 +190,18 @@ class InstagramStorage(context: Context) {
         )
     }
 
+    fun loadThemeMode(): ThemeMode {
+        val raw = prefs.getString(KEY_THEME_MODE, ThemeMode.SYSTEM.name)
+        return runCatching { ThemeMode.valueOf(raw ?: ThemeMode.SYSTEM.name) }
+            .getOrDefault(ThemeMode.SYSTEM)
+    }
+
+    fun saveThemeMode(mode: ThemeMode) {
+        prefs.edit().putString(KEY_THEME_MODE, mode.name).apply()
+    }
+
     companion object {
+        private const val KEY_THEME_MODE = "app_theme_mode"
         private const val PREFS_NAME = "instagram_clone_prefs_v1"
         private const val KEY_STATE = "app_data_state_json"
         private const val KEY_APIFY_TOKEN = "saved_apify_token"
