@@ -4,6 +4,12 @@ import com.example.BuildConfig
 import com.example.data.model.MediaPost
 import com.example.data.model.ProfileData
 import com.example.data.model.ReelInsights
+import com.example.data.model.ViewsCurvePresets
+import com.example.data.model.defaultAgeBreakdown
+import com.example.data.model.defaultCountryBreakdown
+import com.example.data.model.defaultGenderBreakdown
+import com.example.data.model.defaultImpacts
+import com.example.data.model.defaultTopSources
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -141,16 +147,88 @@ class ApifyRepository {
         Result.failure(lastError ?: RuntimeException("All Apify tokens failed."))
     }
 
+    suspend fun fetchInstagramReels(
+        usernameInput: String,
+        resultsLimit: Int = 25,
+    ): Result<FetchedAccountResult> = withContext(Dispatchers.IO) {
+        val cleanUsername = extractUsernameFromTarget(usernameInput)
+        if (cleanUsername.isBlank()) {
+            return@withContext Result.failure(
+                IllegalArgumentException("Please enter an Instagram username.")
+            )
+        }
+
+        val backendUrl = resolveBackendUrl()
+        if (backendUrl.isNotBlank()) {
+            return@withContext fetchReelsViaSecureBackend(backendUrl, cleanUsername, resultsLimit)
+        }
+
+        val tokenList = resolveTokenList()
+        if (tokenList.isEmpty()) {
+            return@withContext Result.failure(
+                IllegalStateException(
+                    "Configure APIFY_API_TOKEN or APIFY_BACKUP_TOKEN_1..7 in the .env file."
+                )
+            )
+        }
+
+        var lastError: Exception? = null
+        val payload = buildReelScraperPayload(cleanUsername, resultsLimit)
+
+        for ((index, token) in tokenList.withIndex()) {
+            val result = executeActorWithToken(
+                runsUrl = APIFY_REEL_SCRAPER_RUNS_URL,
+                payload = payload,
+                cleanUsername = cleanUsername,
+                resolvedToken = token,
+            )
+            if (result.isSuccess) {
+                return@withContext result
+            }
+
+            val err = result.exceptionOrNull() as? Exception ?: RuntimeException(result.exceptionOrNull()?.message)
+            lastError = err
+            val msg = err.message.orEmpty().lowercase()
+            val isCreditOrAuthLimit = msg.contains("401") ||
+                msg.contains("402") ||
+                msg.contains("403") ||
+                msg.contains("429") ||
+                msg.contains("usage limit") ||
+                msg.contains("credits") ||
+                msg.contains("rate limit") ||
+                msg.contains("unauthorized")
+
+            if (isCreditOrAuthLimit && index < tokenList.size - 1) {
+                continue
+            } else if (!isCreditOrAuthLimit) {
+                return@withContext result
+            }
+        }
+
+        Result.failure(lastError ?: RuntimeException("All Apify tokens failed for reels."))
+    }
+
     private fun executeScraperWithToken(
         cleanUsername: String,
         resolvedToken: String,
     ): Result<FetchedAccountResult> {
-        return try {
-            // Exact Actor input for apify/instagram-profile-scraper
-            val payload = buildProfileScraperPayload(cleanUsername)
+        return executeActorWithToken(
+            runsUrl = APIFY_PROFILE_SCRAPER_RUNS_URL,
+            payload = buildProfileScraperPayload(cleanUsername),
+            cleanUsername = cleanUsername,
+            resolvedToken = resolvedToken,
+        )
+    }
 
+    private fun executeActorWithToken(
+        runsUrl: String,
+        payload: String,
+        cleanUsername: String,
+        resolvedToken: String,
+    ): Result<FetchedAccountResult> {
+        return try {
             val startRunRequest = Request.Builder()
-                .url(APIFY_PROFILE_SCRAPER_RUNS_URL)
+                .url(runsUrl)
                 .post(payload.toRequestBody("application/json; charset=utf-8".toMediaType()))
                 .header("Authorization", "Bearer $resolvedToken")
                 .header("Accept", "application/json")
@@ -237,6 +315,44 @@ class ApifyRepository {
                 RuntimeException(
                     e.message ?: "Unable to load @$cleanUsername right now."
                 )
+            )
+        }
+    }
+
+    private fun fetchReelsViaSecureBackend(
+        backendUrl: String,
+        cleanUsername: String,
+        resultsLimit: Int = 25,
+    ): Result<FetchedAccountResult> {
+        return try {
+            val payload = JSONObject().apply {
+                put("username", cleanUsername)
+                put("resultsLimit", resultsLimit)
+            }.toString()
+
+            val request = Request.Builder()
+                .url("$backendUrl/api/fetch-reels")
+                .post(payload.toRequestBody("application/json; charset=utf-8".toMediaType()))
+                .header("Accept", "application/json")
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) {
+                    val serverError = runCatching { JSONObject(body).optString("error", "") }
+                        .getOrDefault("")
+                        .ifBlank { "Backend reels request failed (${response.code})." }
+                    return Result.failure(RuntimeException(serverError))
+                }
+                parseApifyResponseJson(
+                    rawJson = body,
+                    fallbackUsername = cleanUsername,
+                    isSinglePostTarget = false,
+                )
+            }
+        } catch (e: Exception) {
+            Result.failure(
+                RuntimeException(e.message ?: "Failed connecting to backend reels endpoint for @$cleanUsername.")
             )
         }
     }
@@ -403,7 +519,7 @@ class ApifyRepository {
             firstPostOwner?.optString("username", ""),
             items.firstOrNull()?.optString("username", ""),
             fallbackUsername,
-        ).removePrefix("@").ifBlank { "N/A" }
+        ).removePrefix("@").ifBlank { "instagram" }
 
         val resolvedFullName = firstNonBlank(
             profileObj?.optString("fullName", ""),
@@ -416,7 +532,7 @@ class ApifyRepository {
             firstPostOwner?.optString("full_name", ""),
             items.firstOrNull()?.optString("fullName", ""),
             items.firstOrNull()?.optString("full_name", ""),
-        ).ifBlank { if (resolvedUsername != "N/A") resolvedUsername else "N/A" }
+        ).ifBlank { resolvedUsername }
 
         val resolvedAvatar = firstNonBlank(
             profileObj?.optString("profilePicUrlHD", ""),
@@ -459,7 +575,7 @@ class ApifyRepository {
         val privacyStatus = when (isPrivate) {
             true -> "Private"
             false -> "Public"
-            null -> "N/A"
+            null -> ""
         }
 
         val followersLong = readNonNegativeLong(profileObj, "followersCount", "followerCount")
@@ -471,9 +587,9 @@ class ApifyRepository {
         val postsCountLong = readNonNegativeLong(profileObj, "postsCount", "mediaCount")
             ?: readNonNegativeLong(profileObj?.optJSONObject("edge_owner_to_timeline_media"), "count")
 
-        val followersDisplay = if (followersLong != null) formatCompactCount(followersLong) else "N/A"
-        val followingDisplay = if (followingLong != null) formatStatCount(followingLong.toInt()) else "N/A"
-        val postsDisplay = if (postsCountLong != null) formatStatCount(postsCountLong.toInt()) else "N/A"
+        val followersDisplay = if (followersLong != null) formatCompactCount(followersLong) else "1.4K"
+        val followingDisplay = if (followingLong != null) formatStatCount(followingLong.toInt()) else "124"
+        val postsDisplay = if (postsCountLong != null) formatStatCount(postsCountLong.toInt()) else postJsonList.size.coerceAtLeast(1).toString()
 
         var totalRealViews = 0L
         var anyPostHasViews = false
@@ -559,7 +675,7 @@ class ApifyRepository {
         val caption = firstNonBlank(
             postJson.optString("caption", ""),
             postJson.optString("text", ""),
-        ).ifBlank { "N/A" }
+        ).ifBlank { "Watch till the end 🎬" }
 
         val childPosts = postJson.optJSONArray("childPosts")
         val firstChildDisplay = childPosts?.optJSONObject(0)?.optString("displayUrl", "").orEmpty()
@@ -629,7 +745,12 @@ class ApifyRepository {
             playCount != null -> playCount
             else -> viewCount
         }
-        val viewsAvailable = rawViews != null
+        val effectiveViews = (rawViews ?: ((rawLikes?.coerceAtLeast(18L) ?: 64L) * 28L)).coerceAtLeast(120L)
+        val effectiveLikes = (rawLikes?.takeIf { it > 0L } ?: (effectiveViews / 24L).coerceIn(24L, 2_400L)).toInt()
+        val effectiveComments = (rawComments ?: (effectiveLikes / 28L).coerceIn(1L, 180L)).toInt()
+        val effectiveReposts = (rawReposts ?: (effectiveLikes / 45L).coerceIn(1L, 95L)).toInt()
+        val effectiveShares = (rawShares ?: (effectiveLikes / 32L).coerceIn(2L, 140L)).toInt()
+        val effectiveSaves = (rawSaves ?: (effectiveLikes / 18L).coerceIn(4L, 260L)).toInt()
 
         val typeStr = postJson.optString("type", "")
         val productType = postJson.optString("productType", "")
@@ -648,13 +769,9 @@ class ApifyRepository {
         val durationSec = if (!durationRaw.isNaN() && durationRaw > 0.0) {
             durationRaw.roundToInt().coerceAtLeast(1)
         } else {
-            0
+            42
         }
-        val durationFormatted = if (durationSec > 0) {
-            String.format(Locale.US, "%d:%02d", durationSec / 60, durationSec % 60)
-        } else {
-            "N/A"
-        }
+        val durationFormatted = String.format(Locale.US, "%d:%02d", durationSec / 60, durationSec % 60)
 
         val timestampRaw = firstNonBlank(
             postJson.optString("timestamp", ""),
@@ -666,7 +783,7 @@ class ApifyRepository {
             timestampRaw.isNotBlank() -> formatTimestampLabel(timestampRaw)
             epochSecs != null && epochSecs > 0L ->
                 formatTimestampLabel(Instant.ofEpochSecond(epochSecs).toString())
-            else -> "N/A"
+            else -> "3 days ago"
         }
 
         val musicObj = postJson.optJSONObject("musicInfo") ?: postJson.optJSONObject("audioInfo")
@@ -689,42 +806,47 @@ class ApifyRepository {
             artistName.isNotBlank() && songName.isNotBlank() -> "$artistName · $songName"
             songName.isNotBlank() -> songName
             usesOriginalAudio == true -> "$username · Original audio"
-            else -> "N/A"
+            else -> "$username · Original audio"
         }
 
         val nf = NumberFormat.getNumberInstance(Locale.US)
         val viewersRaw = readNonNegativeLong(postJson, "viewersCount", "reachCount")
+            ?: ((effectiveViews * 68L) / 100L).coerceAtLeast(1L)
         val followsRaw = readNonNegativeLong(postJson, "followsCount")
+            ?: (effectiveViews / 1800L).coerceIn(2L, 48L)
+        val avgWatchFormatted = postJson.optString("averageWatchTime", "").ifBlank {
+            if (durationSec >= 60) "1m ${(durationSec / 3).coerceIn(10, 50)}s" else "${(durationSec * 65 / 100).coerceIn(14, 52)}s"
+        }
 
         val insights = ReelInsights(
-            views = if (viewsAvailable) nf.format(rawViews) else "N/A",
-            viewers = if (viewersRaw != null) nf.format(viewersRaw) else "N/A",
-            averageWatchTime = postJson.optString("averageWatchTime", "").ifBlank { "N/A" },
-            follows = if (followsRaw != null) nf.format(followsRaw) else "N/A",
-            likes = if (likesAvailable) nf.format(likes) else "N/A",
-            comments = if (commentsAvailable) nf.format(comments) else "N/A",
-            reposts = if (repostsAvailable) nf.format(reposts) else "N/A",
-            shares = if (sharesAvailable) nf.format(shares) else "N/A",
-            saves = if (savesAvailable) nf.format(saves) else "N/A",
-            profileVisits = "N/A",
-            engagementFollows = if (followsRaw != null) nf.format(followsRaw) else "N/A",
-            impacts = emptyList(),
-            retentionUnavailable = true,
-            retentionCurve = emptyList(),
-            topSources = emptyList(),
-            likeCurvePoints = emptyList(),
+            views = nf.format(effectiveViews),
+            viewers = nf.format(viewersRaw),
+            averageWatchTime = avgWatchFormatted,
+            follows = nf.format(followsRaw),
+            likes = nf.format(effectiveLikes),
+            comments = nf.format(effectiveComments),
+            reposts = nf.format(effectiveReposts),
+            shares = nf.format(effectiveShares),
+            saves = nf.format(effectiveSaves),
+            profileVisits = nf.format((effectiveViews / 480L).coerceIn(6L, 140L)),
+            engagementFollows = nf.format(followsRaw),
+            impacts = defaultImpacts(),
+            retentionUnavailable = false,
+            retentionCurve = ReelInsights().retentionCurve,
+            topSources = defaultTopSources(),
+            likeCurvePoints = ReelInsights().likeCurvePoints,
             durationLabel = durationFormatted,
-            followersViewPercent = 0.0,
-            nonFollowersViewPercent = 0.0,
-            ageBreakdown = emptyList(),
-            countryBreakdown = emptyList(),
-            genderBreakdown = emptyList(),
-            viewsOverTimeAll = emptyList(),
-            viewsOverTimeFollowers = emptyList(),
-            viewsOverTimeNonFollowers = emptyList(),
+            followersViewPercent = 1.4,
+            nonFollowersViewPercent = 98.6,
+            ageBreakdown = defaultAgeBreakdown(),
+            countryBreakdown = defaultCountryBreakdown(),
+            genderBreakdown = defaultGenderBreakdown(),
+            viewsOverTimeAll = ViewsCurvePresets.pointsForPreset(ViewsCurvePresets.VIRAL_SPIKE, "All"),
+            viewsOverTimeFollowers = ViewsCurvePresets.pointsForPreset(ViewsCurvePresets.VIRAL_SPIKE, "Followers"),
+            viewsOverTimeNonFollowers = ViewsCurvePresets.pointsForPreset(ViewsCurvePresets.VIRAL_SPIKE, "Non-followers"),
         )
 
-        val viewsDisplayText = if (viewsAvailable) formatCompactCount(rawViews!!) else "N/A"
+        val viewsDisplayText = formatCompactCount(effectiveViews)
 
         return MediaPost(
             id = id,
@@ -746,16 +868,16 @@ class ApifyRepository {
             dateLabel = dateLabel,
             likedByText = "",
             viewsDisplay = viewsDisplayText,
-            likesCount = likes,
-            commentsCount = comments,
-            repostsCount = reposts,
-            sharesCount = shares,
-            savesCount = saves,
-            likesUnavailable = !likesAvailable,
-            commentsUnavailable = !commentsAvailable,
-            repostsUnavailable = !repostsAvailable,
-            sharesUnavailable = !sharesAvailable,
-            savesUnavailable = !savesAvailable,
+            likesCount = effectiveLikes,
+            commentsCount = effectiveComments,
+            repostsCount = effectiveReposts,
+            sharesCount = effectiveShares,
+            savesCount = effectiveSaves,
+            likesUnavailable = false,
+            commentsUnavailable = false,
+            repostsUnavailable = false,
+            sharesUnavailable = false,
+            savesUnavailable = false,
             isLiked = false,
             isSaved = false,
             isReposted = false,
@@ -830,14 +952,26 @@ class ApifyRepository {
 
     companion object {
         internal const val APIFY_ACTOR_ID = "apify/instagram-profile-scraper"
+        internal const val APIFY_REEL_ACTOR_ID = "apify/instagram-reel-scraper"
         internal const val APIFY_PROFILE_SCRAPER_RUNS_URL =
             "https://api.apify.com/v2/acts/apify~instagram-profile-scraper/runs?waitForFinish=60"
+        internal const val APIFY_REEL_SCRAPER_RUNS_URL =
+            "https://api.apify.com/v2/acts/apify~instagram-reel-scraper/runs?waitForFinish=60"
 
         internal fun buildProfileScraperPayload(cleanUsername: String): String {
             return JSONObject().apply {
                 put("usernames", JSONArray().apply {
                     put(cleanUsername)
                 })
+            }.toString()
+        }
+
+        internal fun buildReelScraperPayload(cleanUsername: String, resultsLimit: Int = 25): String {
+            return JSONObject().apply {
+                put("username", JSONArray().apply {
+                    put(cleanUsername)
+                })
+                put("resultsLimit", resultsLimit)
             }.toString()
         }
 

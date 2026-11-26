@@ -7,6 +7,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -59,6 +60,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -84,6 +86,7 @@ import com.example.ui.components.IgHeartStrokeIcon
 import com.example.ui.components.IgMoreDotsIcon
 import com.example.ui.components.IgRepostLoopIcon
 import com.example.ui.components.IgSharePlaneIcon
+import com.example.ui.components.InlineChartPointEditor
 import com.example.ui.components.InsightsUiColors
 import com.example.ui.components.PostMediaImage
 import com.example.ui.components.ReelInsightsEditModal
@@ -690,30 +693,29 @@ private fun OverviewTabContent(
             unavailable = insights.retentionUnavailable,
             curve = insights.retentionCurve,
             durationLabel = insights.durationLabel,
+            palette = palette,
+            isEditMode = isEditMode,
+            onUpdatePoint = { idx, newVal ->
+                val updated = insights.retentionCurve.toMutableList()
+                if (idx in updated.indices) updated[idx] = newVal.coerceIn(0f, 100f)
+                onUpdateInsights { it.copy(retentionCurve = updated) }
+            },
         )
 
         Spacer(Modifier.height(26.dp))
         SectionHeaderWithInfo(title = "Top sources of views")
         Spacer(Modifier.height(14.dp))
 
-        if (insights.topSources.isEmpty()) {
-            Text(
-                text = "N/A",
-                fontSize = 13.5.sp,
-                color = palette.textSecondary,
-                modifier = Modifier.padding(vertical = 6.dp),
+        val sourcesToShow = insights.topSources.ifEmpty { com.example.data.model.defaultTopSources() }
+        sourcesToShow.forEachIndexed { idx, source ->
+            SourceProgressRow(
+                source = source,
+                barColor = IgInsightsMagenta,
+                isEditMode = isEditMode,
+                onLabelChange = { newLabel -> onUpdateTopSource(idx, newLabel, null) },
+                onPercentChange = { newPct -> onUpdateTopSource(idx, null, newPct) },
             )
-        } else {
-            insights.topSources.forEachIndexed { idx, source ->
-                SourceProgressRow(
-                    source = source,
-                    barColor = IgInsightsMagenta,
-                    isEditMode = isEditMode,
-                    onLabelChange = { newLabel -> onUpdateTopSource(idx, newLabel, null) },
-                    onPercentChange = { newPct -> onUpdateTopSource(idx, null, newPct) },
-                )
-                Spacer(Modifier.height(14.dp))
-            }
+            Spacer(Modifier.height(14.dp))
         }
     }
 }
@@ -736,17 +738,19 @@ private fun SummaryCard(
     ) {
         Text(
             text = label,
-            style = IgTypography.secondaryMeta,
+            fontSize = 13.5.sp,
+            fontWeight = FontWeight.Normal,
             color = palette.textSecondary,
             maxLines = 1,
         )
         Spacer(Modifier.height(6.dp))
+        val valueColor = if (palette.textPrimary == Color.White) Color(0xFFF1F3F5) else palette.textPrimary
         if (isEditMode) {
             InlineEditableNumber(
                 value = value,
                 onValueChange = onValueChange,
                 textStyle = IgTypography.insightsMainNumber.copy(
-                    color = palette.textPrimary,
+                    color = valueColor,
                     fontFeatureSettings = "tnum",
                 ),
                 modifier = Modifier.fillMaxWidth(),
@@ -757,7 +761,7 @@ private fun SummaryCard(
                 style = IgTypography.insightsMainNumber.copy(
                     fontFeatureSettings = "tnum",
                 ),
-                color = palette.textPrimary,
+                color = valueColor,
                 maxLines = 1,
             )
         }
@@ -848,99 +852,149 @@ private fun RetentionCard(
     unavailable: Boolean,
     curve: List<Float>,
     durationLabel: String,
+    palette: InsightsUiColors = rememberInsightsPalette(),
+    isEditMode: Boolean = false,
+    onUpdatePoint: ((Int, Float) -> Unit)? = null,
 ) {
     val colors = InstagramTheme.colors
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(175.dp)
-            .padding(vertical = 8.dp),
-    ) {
-        if (unavailable) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("--", color = colors.textSecondary, fontSize = 12.sp)
-                    Spacer(Modifier.width(12.dp))
-                    HorizontalDivider(color = colors.hairline.copy(alpha = 0.5f))
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("--", color = colors.textSecondary, fontSize = 12.sp)
-                    Spacer(Modifier.width(12.dp))
-                    Text(
-                        text = "Data is currently unavailable.",
-                        color = colors.textSecondary,
-                        fontSize = 14.sp,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                Column {
+    var selectedIdx by remember(curve.size, isEditMode) { mutableIntStateOf(0) }
+    val safeSelected = selectedIdx.coerceIn(0, (curve.size - 1).coerceAtLeast(0))
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(175.dp)
+                .padding(vertical = 8.dp),
+        ) {
+            if (unavailable) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.SpaceBetween,
+                ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("--", color = colors.textSecondary, fontSize = 12.sp)
+                        Text("100%", color = colors.textSecondary, fontSize = 11.sp)
                         Spacer(Modifier.width(12.dp))
                         HorizontalDivider(color = colors.hairline.copy(alpha = 0.5f))
                     }
-                    Spacer(Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("50%", color = colors.textSecondary, fontSize = 11.sp)
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = "Retention curve hidden",
+                            color = colors.textSecondary,
+                            fontSize = 13.5.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("0%", color = colors.textSecondary, fontSize = 11.sp)
+                            Spacer(Modifier.width(12.dp))
+                            HorizontalDivider(color = colors.hairline.copy(alpha = 0.5f))
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 36.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text("0:00", color = colors.textSecondary, fontSize = 11.sp)
+                            Text(durationLabel, color = colors.textSecondary, fontSize = 11.sp)
+                        }
+                    }
+                }
+            } else {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                        Canvas(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(start = 36.dp, top = 8.dp, bottom = 8.dp)
+                                .then(
+                                    if (isEditMode && curve.isNotEmpty()) {
+                                        Modifier.pointerInput(curve.size, isEditMode) {
+                                            detectTapGestures { tap ->
+                                                if (curve.size > 1) {
+                                                    val w = size.width.toFloat().coerceAtLeast(1f)
+                                                    selectedIdx = ((tap.x / w) * (curve.size - 1))
+                                                        .let { kotlin.math.round(it).toInt() }
+                                                        .coerceIn(0, curve.lastIndex)
+                                                }
+                                            }
+                                        }
+                                    } else Modifier
+                                ),
+                        ) {
+                            val w = size.width
+                            val h = size.height
+                            listOf(0f, 0.5f, 1f).forEach { frac ->
+                                drawLine(
+                                    color = colors.hairline.copy(alpha = 0.5f),
+                                    start = Offset(0f, h * frac),
+                                    end = Offset(w, h * frac),
+                                    strokeWidth = 1.dp.toPx(),
+                                )
+                            }
+                            if (curve.size >= 2) {
+                                val coords = curve.mapIndexed { idx, v ->
+                                    val x = w * (idx.toFloat() / (curve.size - 1))
+                                    val y = h * (1f - (v / 100f).coerceIn(0f, 1f))
+                                    Offset(x, y)
+                                }
+                                val path = Path()
+                                coords.forEachIndexed { idx, pt ->
+                                    if (idx == 0) path.moveTo(pt.x, pt.y) else path.lineTo(pt.x, pt.y)
+                                }
+                                drawPath(
+                                    path = path,
+                                    color = IgInsightsMagenta,
+                                    style = Stroke(width = 3.2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
+                                )
+                                if (isEditMode) {
+                                    coords.forEachIndexed { idx, pt ->
+                                        val isSel = idx == safeSelected
+                                        if (isSel) {
+                                            drawCircle(color = palette.bg, radius = 6.8.dp.toPx(), center = pt)
+                                        }
+                                        drawCircle(
+                                            color = if (isSel) IgInsightsViolet else IgInsightsMagenta,
+                                            radius = if (isSel) 5.dp.toPx() else 3.2.dp.toPx(),
+                                            center = pt,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        Column(
+                            modifier = Modifier.fillMaxHeight(),
+                            verticalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text("100%", color = colors.textSecondary, fontSize = 11.sp)
+                            Text("50%", color = colors.textSecondary, fontSize = 11.sp)
+                            Text("0%", color = colors.textSecondary, fontSize = 11.sp)
+                        }
+                    }
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 24.dp),
+                        modifier = Modifier.fillMaxWidth().padding(start = 36.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Text("--", color = colors.textSecondary, fontSize = 12.sp)
-                        Text("--", color = colors.textSecondary, fontSize = 12.sp)
-                        Text("--", color = colors.textSecondary, fontSize = 12.sp)
+                        Text("0:00", color = colors.textSecondary, fontSize = 11.sp)
+                        Text(durationLabel, color = colors.textSecondary, fontSize = 11.sp)
                     }
                 }
             }
-        } else {
-            Column(modifier = Modifier.fillMaxSize()) {
-                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                    Canvas(modifier = Modifier.fillMaxSize().padding(start = 36.dp, top = 8.dp, bottom = 8.dp)) {
-                        val w = size.width
-                        val h = size.height
-                        listOf(0f, 0.5f, 1f).forEach { frac ->
-                            drawLine(
-                                color = colors.hairline.copy(alpha = 0.5f),
-                                start = Offset(0f, h * frac),
-                                end = Offset(w, h * frac),
-                                strokeWidth = 1.dp.toPx(),
-                            )
-                        }
-                        if (curve.size >= 2) {
-                            val path = Path()
-                            curve.forEachIndexed { idx, v ->
-                                val x = w * (idx.toFloat() / (curve.size - 1))
-                                val y = h * (1f - (v / 100f).coerceIn(0f, 1f))
-                                if (idx == 0) path.moveTo(x, y) else path.lineTo(x, y)
-                            }
-                            drawPath(
-                                path = path,
-                                color = IgInsightsMagenta,
-                                style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
-                            )
-                        }
-                    }
-                    Column(
-                        modifier = Modifier.fillMaxHeight(),
-                        verticalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text("100%", color = colors.textSecondary, fontSize = 11.sp)
-                        Text("50%", color = colors.textSecondary, fontSize = 11.sp)
-                        Text("0%", color = colors.textSecondary, fontSize = 11.sp)
-                    }
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(start = 36.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text("0:00", color = colors.textSecondary, fontSize = 11.sp)
-                    Text(durationLabel, color = colors.textSecondary, fontSize = 11.sp)
-                }
-            }
+        }
+        if (isEditMode && !unavailable && onUpdatePoint != null && curve.isNotEmpty()) {
+            InlineChartPointEditor(
+                points = curve,
+                selectedIdx = safeSelected,
+                onSelectIdx = { selectedIdx = it },
+                onUpdatePoint = onUpdatePoint,
+                palette = palette,
+            )
         }
     }
 }

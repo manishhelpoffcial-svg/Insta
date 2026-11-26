@@ -92,10 +92,10 @@ object IgTypography {
     )
     val insightsMainNumber = TextStyle(
         fontFamily = IgSystemFontFamily,
-        fontWeight = FontWeight.Bold,
-        fontSize = 24.sp,
-        lineHeight = 30.sp,
-        letterSpacing = (-0.3).sp,
+        fontWeight = FontWeight.Medium,
+        fontSize = 20.sp,
+        lineHeight = 26.sp,
+        letterSpacing = (-0.2).sp,
         fontFeatureSettings = "tnum",
     )
     val insightsSectionHeading = TextStyle(

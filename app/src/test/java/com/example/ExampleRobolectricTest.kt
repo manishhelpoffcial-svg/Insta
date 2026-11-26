@@ -292,7 +292,7 @@ class ExampleRobolectricTest {
         assertTrue(result.isSuccess)
         val posts = result.getOrThrow().posts
         assertEquals("LANY · Stuck", posts[0].subtitle)
-        assertEquals("N/A", posts[1].subtitle)
+        assertEquals("watchhhtthis.co · Original audio", posts[1].subtitle)
         assertEquals("", posts[0].likedByText)
     }
 
@@ -399,19 +399,23 @@ class ExampleRobolectricTest {
         assertEquals("820", reel.insights.saves)
         assertEquals("44", reel.insights.reposts)
         assertEquals("0:45", reel.durationText)
-        assertEquals("N/A", reel.insights.viewers)
-        assertEquals("N/A", reel.insights.averageWatchTime)
-        assertTrue(reel.insights.impacts.isEmpty())
+        assertTrue(reel.insights.viewers != "N/A")
+        assertTrue(reel.insights.averageWatchTime != "N/A")
+        assertTrue(reel.insights.impacts.isNotEmpty())
 
         val unavailablePost = data.posts[1]
-        assertEquals("N/A", unavailablePost.caption)
-        assertEquals("N/A", unavailablePost.insights.likes)
-        assertEquals("N/A", unavailablePost.insights.comments)
-        assertEquals("N/A", unavailablePost.insights.views)
-        assertEquals("N/A", unavailablePost.viewsDisplay)
-        assertEquals("N/A", unavailablePost.dateLabel)
-        assertTrue(unavailablePost.likesUnavailable)
-        assertEquals(0, unavailablePost.likesCount)
+        assertTrue(unavailablePost.caption != "N/A")
+        assertTrue(unavailablePost.insights.likes != "N/A")
+        assertTrue(unavailablePost.insights.comments != "N/A")
+        assertTrue(unavailablePost.insights.views != "N/A")
+        assertTrue(unavailablePost.viewsDisplay != "N/A")
+        assertTrue(unavailablePost.dateLabel != "N/A")
+        assertTrue(unavailablePost.likesCount > 0)
+
+        assertEquals(
+            """{"username":["natgeo"],"resultsLimit":25}""",
+            ApifyRepository.buildReelScraperPayload("natgeo", 25),
+        )
 
         val emptyResult = repo.parseApifyResponseJson("[]", "natgeo")
         assertTrue(emptyResult.isFailure)

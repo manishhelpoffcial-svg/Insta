@@ -624,7 +624,8 @@ private fun FeedPostCard(
 
         // Likes summary & Caption
         Column(modifier = Modifier.padding(horizontal = 14.dp)) {
-            if (post.likesCount > 0) {
+            val effectiveLikesCount = if (post.likesCount > 0) post.likesCount else 48
+            if (effectiveLikesCount > 0) {
                 val likedUsername = remember(post.likedByText, effectiveUsername, postIndex) {
                     resolveLikerUsername(post, postIndex, effectiveUsername)
                 }

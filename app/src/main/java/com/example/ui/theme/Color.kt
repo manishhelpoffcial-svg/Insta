@@ -23,9 +23,9 @@ val IgDarkPostsBackground = Color(0xFF0B0D10)
 val IgDarkMutedTimestamp = Color(0xFF8E9297)
 
 val IgInsightsBgDark = Color(0xFF0B0D10)
-val IgInsightsCardDark = Color(0xFF16181D)
-val IgInsightsBorderDark = Color(0xFF262930)
-val IgInsightsMutedText = Color(0xFF9CA3AF)
+val IgInsightsCardDark = Color(0xFF16191F)
+val IgInsightsBorderDark = Color(0xFF262A32)
+val IgInsightsMutedText = Color(0xFF9EA3AE)
 val IgInsightsAxisText = Color(0xFF8E9297)
 
 val IgBoostBlue = Color(0xFF4A5DF9)

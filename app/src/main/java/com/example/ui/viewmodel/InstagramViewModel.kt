@@ -814,6 +814,100 @@ class InstagramViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun fetchReelsFromApify(usernameOrUrl: String) {
+        val normalizedHandle = ApifyRepository.extractUsernameFromTarget(usernameOrUrl)
+        if (normalizedHandle.isBlank()) {
+            _fetchUiState.value = FetchAccountUiState.Error("Please enter a valid Instagram username.")
+            return
+        }
+        _fetchUiState.value = FetchAccountUiState.Loading
+        viewModelScope.launch {
+            val result = apifyRepository.fetchInstagramReels(usernameOrUrl, resultsLimit = 25)
+            result.fold(
+                onSuccess = { fetched ->
+                    val dedupedReels = fetched.posts.distinctBy {
+                        it.shortCode.ifBlank { it.postUrl.ifBlank { it.id } }
+                    }
+                    applyFetchedReels(dedupedReels, normalizedHandle)
+                    _showFetchModal.value = false
+                    _fetchUiState.value = FetchAccountUiState.Success(
+                        "Loaded ${dedupedReels.size} reels & views for @$normalizedHandle"
+                    )
+                },
+                onFailure = { err ->
+                    _fetchUiState.value = FetchAccountUiState.Error(
+                        err.message ?: "Unable to load reels for @$normalizedHandle."
+                    )
+                }
+            )
+        }
+    }
+
+    internal fun applyFetchedReels(fetchedReels: List<MediaPost>, handle: String) {
+        if (fetchedReels.isEmpty()) return
+        updateAndPersist { current ->
+            val byKey = fetchedReels.associateBy { it.shortCode.ifBlank { it.id } }
+            val existingOwnKeys = current.posts.filter { it.isOwnPost }.map { it.shortCode.ifBlank { it.id } }.toSet()
+            val updatedExisting = current.posts.map { post ->
+                val key = post.shortCode.ifBlank { post.id }
+                val match = byKey[key]
+                if (match != null) {
+                    post.copy(
+                        authorUsername = current.profile.username.ifBlank { handle },
+                        mediaUrl = match.mediaUrl ?: post.mediaUrl,
+                        videoUrl = match.videoUrl ?: post.videoUrl,
+                        viewsDisplay = match.viewsDisplay,
+                        likesCount = match.likesCount,
+                        commentsCount = match.commentsCount,
+                        repostsCount = match.repostsCount,
+                        sharesCount = match.sharesCount,
+                        savesCount = match.savesCount,
+                        durationText = match.durationText,
+                        dateLabel = match.dateLabel,
+                        isReel = true,
+                        isOwnPost = true,
+                        insights = match.insights,
+                    )
+                } else post
+            }
+            val newOnes = fetchedReels.filter {
+                val key = it.shortCode.ifBlank { it.id }
+                key !in existingOwnKeys
+            }.map {
+                it.copy(
+                    authorUsername = current.profile.username.ifBlank { handle },
+                    isOwnPost = true,
+                    isReel = true,
+                )
+            }
+            val mergedPosts = newOnes + updatedExisting
+            val ownReels = mergedPosts.filter { it.isOwnPost }
+            val totalViews = ownReels.sumOf { it.insights.views.replace(",", "").trim().toLongOrNull() ?: 0L }
+            val totalLikes = ownReels.sumOf { it.likesCount.toLong() }
+            val totalComments = ownReels.sumOf { it.commentsCount.toLong() }
+            val totalReposts = ownReels.sumOf { it.repostsCount.toLong() }
+            val nf = java.text.NumberFormat.getNumberInstance(java.util.Locale.US)
+            val compactViews = ApifyRepository.formatCompactCount(totalViews)
+
+            current.copy(
+                posts = mergedPosts,
+                profile = current.profile.copy(
+                    dashboardSubtitle = "$compactViews views in the last 30 days.",
+                ),
+                accountInsights = current.accountInsights.copy(
+                    dashboardViews = compactViews,
+                    overviewViews = nf.format(totalViews),
+                    reelsViews = compactViews,
+                    interactions = nf.format(totalLikes + totalComments + totalReposts),
+                    interactionsLikes = nf.format(totalLikes),
+                    interactionsComments = nf.format(totalComments),
+                    interactionsReposts = nf.format(totalReposts),
+                    contentShared = ownReels.size.toString(),
+                ),
+            )
+        }
+    }
+
     fun importApifyJson(rawJson: String, fallbackUsername: String) {
         _fetchUiState.value = FetchAccountUiState.Loading
         val result = apifyRepository.parseApifyResponseJson(rawJson, fallbackUsername.ifBlank { "instagram" })

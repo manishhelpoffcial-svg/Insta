@@ -46,7 +46,7 @@ object ViewsCurvePresets {
         val base = when (preset) {
             STEADY_GROWTH -> listOf(4f, 18f, 34f, 52f, 68f, 82f, 94f)
             DELAYED_SPIKE -> listOf(3f, 5f, 8f, 14f, 72f, 91f, 96f)
-            else -> listOf(0f, 91f, 93f, 94f, 95f, 96f, 97f) // Viral Launch Spike (10963.jpg)
+            else -> listOf(0f, 94f, 97f, 98f, 98.5f, 99f, 99.5f) // Reference Viral Launch Spike
         }
         return when (series) {
             "Followers" -> base.map { (it * 0.42f).coerceIn(0f, 100f) }
@@ -69,8 +69,8 @@ data class ReelInsights(
     val profileVisits: String = "13",
     val engagementFollows: String = "10",
     val impacts: List<ImpactMetric> = defaultImpacts(),
-    val retentionUnavailable: Boolean = true,
-    val retentionCurve: List<Float> = listOf(100f, 86f, 74f, 65f, 58f, 52f, 47f, 42f, 38f, 34f),
+    val retentionUnavailable: Boolean = false,
+    val retentionCurve: List<Float> = listOf(100f, 84f, 79f, 75f, 71f, 67f, 63f, 60f, 58f, 57f, 56f, 55f, 50f),
     val topSources: List<SourceShare> = defaultTopSources(),
     val likeCurvePoints: List<Float> = listOf(5f, 22f, 12f, 2f, 1f, 0.5f, 1.5f, 0.5f, 2f, 0.5f, 0.5f, 10f),
     val durationLabel: String = "0:58",

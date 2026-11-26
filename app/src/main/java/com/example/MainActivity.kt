@@ -233,14 +233,13 @@ fun InstagramCloneApp(
                         if (reducedMotion) {
                             fadeIn(tween(0)) togetherWith fadeOut(tween(0))
                         } else if (targetState != null && initialState == null) {
-                            (slideInHorizontally(tween(240)) { it / 5 } + fadeIn(tween(220))) togetherWith
-                                fadeOut(tween(180))
+                            (slideInHorizontally(tween(150)) { it / 10 } + fadeIn(tween(140))) togetherWith
+                                fadeOut(tween(100))
                         } else if (targetState == null && initialState != null) {
-                            fadeIn(tween(200)) togetherWith
-                                (slideOutHorizontally(tween(220)) { it / 5 } + fadeOut(tween(180)))
+                            fadeIn(tween(130)) togetherWith
+                                (slideOutHorizontally(tween(140)) { it / 10 } + fadeOut(tween(110)))
                         } else {
-                            (slideInHorizontally(tween(220)) { it / 6 } + fadeIn(tween(200))) togetherWith
-                                (slideOutHorizontally(tween(180)) { -it / 10 } + fadeOut(tween(160)))
+                            fadeIn(tween(130)) togetherWith fadeOut(tween(100))
                         }
                     },
                     label = "overlay_navigation_transition",
@@ -479,6 +478,7 @@ fun InstagramCloneApp(
             fetchState = fetchUiState,
             onDismiss = viewModel::dismissFetchModal,
             onSubmitUsername = viewModel::fetchAccountFromApify,
+            onFetchReels = viewModel::fetchReelsFromApify,
             onInputChanged = viewModel::resetFetchState,
             onLogoutClick = viewModel::logout,
             themeMode = themeMode,

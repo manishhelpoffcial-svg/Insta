@@ -105,6 +105,7 @@ fun FetchInstagramAccountModal(
     fetchState: FetchAccountUiState,
     onDismiss: () -> Unit,
     onSubmitUsername: (username: String) -> Unit,
+    onFetchReels: ((username: String) -> Unit)? = null,
     onInputChanged: () -> Unit = {},
     onLogoutClick: (() -> Unit)? = null,
     themeMode: ThemeMode? = null,
@@ -117,15 +118,23 @@ fun FetchInstagramAccountModal(
     val isLoading = fetchState is FetchAccountUiState.Loading
     val loadingLabel = rememberProgressiveLoadingLabel(isLoading)
 
-    fun submit() {
+    fun cleanInput(): String? {
         val clean = username.trim().removePrefix("@").trim()
         if (clean.isBlank()) {
             localError = "Enter a username"
-            return
+            return null
         }
         localError = null
         keyboardController?.hide()
-        onSubmitUsername(clean)
+        return clean
+    }
+
+    fun submit() {
+        cleanInput()?.let(onSubmitUsername)
+    }
+
+    fun submitReels() {
+        cleanInput()?.let { clean -> onFetchReels?.invoke(clean) }
     }
 
     Dialog(
@@ -187,6 +196,14 @@ fun FetchInstagramAccountModal(
                     .testTag("fetch_username_input"),
             )
 
+            Text(
+                text = "1. Clone Profile",
+                color = colors.textSecondary,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
             Button(
                 onClick = { submit() },
                 enabled = !isLoading,
@@ -199,7 +216,7 @@ fun FetchInstagramAccountModal(
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp)
+                    .height(46.dp)
                     .testTag("fetch_submit_button"),
             ) {
                 if (isLoading) {
@@ -224,6 +241,38 @@ fun FetchInstagramAccountModal(
                         text = "Enter",
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 15.sp,
+                    )
+                }
+            }
+
+            if (onFetchReels != null) {
+                Text(
+                    text = "2. Fetch Views & Reels",
+                    color = colors.textSecondary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                Button(
+                    onClick = { submitReels() },
+                    enabled = !isLoading,
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colors.pillBackground,
+                        contentColor = colors.textPrimary,
+                        disabledContainerColor = colors.pillBackground.copy(alpha = 0.55f),
+                        disabledContentColor = colors.textSecondary,
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp)
+                        .testTag("fetch_reels_button"),
+                ) {
+                    Text(
+                        text = "Fetch Views & Reels",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp,
                     )
                 }
             }
