@@ -745,7 +745,8 @@ class ApifyRepository {
             playCount != null -> playCount
             else -> viewCount
         }
-        val effectiveViews = (rawViews ?: ((rawLikes?.coerceAtLeast(18L) ?: 64L) * 28L)).coerceAtLeast(120L)
+        val effectiveViews = rawViews?.takeIf { it > 0L }
+            ?: ((rawLikes?.coerceAtLeast(18L) ?: 64L) * 28L).coerceAtLeast(120L)
         val effectiveLikes = (rawLikes?.takeIf { it > 0L } ?: (effectiveViews / 24L).coerceIn(24L, 2_400L)).toInt()
         val effectiveComments = (rawComments ?: (effectiveLikes / 28L).coerceIn(1L, 180L)).toInt()
         val effectiveReposts = (rawReposts ?: (effectiveLikes / 45L).coerceIn(1L, 95L)).toInt()
