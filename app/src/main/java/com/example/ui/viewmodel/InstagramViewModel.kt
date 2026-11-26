@@ -338,16 +338,7 @@ class InstagramViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun openReelInsightsFromClick(postId: String) {
-        launchInsightsTransition(
-            cacheKey = "reel_$postId",
-            onReady = { openReelInsights(postId) },
-            prepare = {
-                withContext(Dispatchers.IO) {
-                    // Hydrate latest persisted post/insights metrics before transition
-                    storage.loadState().posts.find { it.id == postId }?.insights
-                }
-            },
-        )
+        openReelInsights(postId)
     }
 
     fun openProfessionalDashboardFromClick() {

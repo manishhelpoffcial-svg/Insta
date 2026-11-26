@@ -116,17 +116,61 @@ fun rememberInsightsPalette(): InsightsUiColors {
         } else {
             InsightsUiColors(
                 bg = Color(0xFFFFFFFF),
-                card = Color(0xFFF3F4F6),
-                border = Color(0xFFE5E7EB),
+                card = Color(0xFFF7F8FA),
+                border = Color(0xFFDBDBDB),
                 textPrimary = Color(0xFF000000),
-                textSecondary = Color(0xFF6B7280),
+                textSecondary = Color(0xFF666666),
                 axisText = Color(0xFF737373),
-                pillSelected = Color(0xFFE5E7EB),
-                track = Color(0xFFE5E7EB),
-                activeCardBorder = Color(0xFF000000),
+                pillSelected = Color(0xFFF0F2F5),
+                track = Color(0xFFF0F0F5),
+                activeCardBorder = Color(0xFFD1D5DB),
             )
         }
     }
+}
+
+@Composable
+fun rememberCleanLightInsightsPalette(): InsightsUiColors = remember {
+    InsightsUiColors(
+        bg = Color(0xFFFFFFFF),
+        card = Color(0xFFF7F8FA),
+        border = Color(0xFFDBDBDB),
+        textPrimary = Color(0xFF000000),
+        textSecondary = Color(0xFF666666),
+        axisText = Color(0xFF737373),
+        pillSelected = Color(0xFFF0F2F5),
+        track = Color(0xFFF0F0F5),
+        activeCardBorder = Color(0xFFD1D5DB),
+    )
+}
+
+@Composable
+fun ReelInsightsSkeletonBlock(
+    modifier: Modifier = Modifier,
+    cornerRadius: androidx.compose.ui.unit.Dp = 6.dp,
+) {
+    val transition = rememberInfiniteTransition(label = "reel_skeleton")
+    val progress by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 900, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "reel_skeleton_offset",
+    )
+    val base = Color(0xFFECEEF2)
+    val highlight = Color(0xFFF6F7F9)
+    val brush = Brush.linearGradient(
+        colors = listOf(base, highlight, base),
+        start = Offset(progress * 450f - 220f, 0f),
+        end = Offset(progress * 450f + 160f, 120f),
+    )
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(cornerRadius))
+            .background(brush),
+    )
 }
 
 fun formatAxisLabels(rawMax: String, fallbackViews: String): Pair<String, String> {
@@ -316,12 +360,37 @@ fun ViewsOverTimeLineChart(
                 val h = size.height
                 listOf(0f, 0.5f, 1f).forEach { frac ->
                     drawLine(
-                        color = palette.border,
+                        color = Color(0xFFF2F2F2),
                         start = Offset(0f, h * frac),
                         end = Offset(w, h * frac),
                         strokeWidth = 1.dp.toPx(),
                     )
                 }
+
+                // Typical reel dashed reference line
+                val typicalValues = listOf(5f, 24f, 44f, 68f)
+                val typicalCoords = typicalValues.mapIndexed { idx, value ->
+                    val x = w * (idx.toFloat() / (typicalValues.size - 1))
+                    val y = h * (1f - (value / 100f).coerceIn(0f, 1f))
+                    Offset(x, y)
+                }
+                val typicalPath = Path().apply {
+                    typicalCoords.forEachIndexed { idx, pt ->
+                        if (idx == 0) moveTo(pt.x, pt.y) else lineTo(pt.x, pt.y)
+                    }
+                }
+                drawPath(
+                    path = typicalPath,
+                    color = Color(0xFF6B7280),
+                    style = Stroke(
+                        width = 2.dp.toPx(),
+                        cap = StrokeCap.Round,
+                        pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(
+                            floatArrayOf(12f, 10f),
+                            0f,
+                        ),
+                    ),
+                )
 
                 if (points.size >= 2) {
                     val coords = points.mapIndexed { idx, value ->
@@ -336,11 +405,11 @@ fun ViewsOverTimeLineChart(
                     }
                     drawPath(
                         path = path,
-                        color = IgInsightsMagenta,
+                        color = Color(0xFFD300C5),
                         style = Stroke(
-                            width = 3.2.dp.toPx(),
+                            width = 3.dp.toPx(),
                             cap = StrokeCap.Round,
-                            join = StrokeJoin.Miter,
+                            join = StrokeJoin.Round,
                         ),
                     )
                     if (isEditMode) {
@@ -354,7 +423,7 @@ fun ViewsOverTimeLineChart(
                                 )
                             }
                             drawCircle(
-                                color = if (isSel) IgInsightsViolet else IgInsightsMagenta,
+                                color = if (isSel) Color(0xFF4F46E5) else Color(0xFFD300C5),
                                 radius = if (isSel) 5.5.dp.toPx() else 3.8.dp.toPx(),
                                 center = pt,
                             )
@@ -370,9 +439,36 @@ fun ViewsOverTimeLineChart(
                 .padding(start = 42.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text(startDate, color = palette.axisText, fontSize = 11.5.sp)
-            Text(midDate, color = palette.axisText, fontSize = 11.5.sp)
-            Text(endDate, color = palette.axisText, fontSize = 11.5.sp)
+            Text(startDate, color = palette.axisText, fontSize = 12.sp)
+            Text(midDate, color = palette.axisText, fontSize = 12.sp)
+            Text(endDate, color = palette.axisText, fontSize = 12.sp)
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(
+            modifier = Modifier.padding(start = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFD300C5)),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text("This reel", fontSize = 12.sp, color = palette.textSecondary)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF6B7280)),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text("Your typical reel", fontSize = 12.sp, color = palette.textSecondary)
+            }
         }
 
         if (isEditMode && onUpdatePoint != null && points.isNotEmpty()) {

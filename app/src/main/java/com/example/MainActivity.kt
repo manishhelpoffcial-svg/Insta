@@ -8,6 +8,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -214,9 +215,20 @@ fun InstagramCloneApp(
                 }
             },
         ) { innerPadding ->
+            val activeInsightsRoute = currentOverlay as? OverlayRoute.ReelInsightsScreen
+            val baseOverlay = if (activeInsightsRoute != null) {
+                backStack.dropLast(1).lastOrNull()
+            } else {
+                currentOverlay
+            }
+            var lastInsightsPostId by remember { mutableStateOf<String?>(null) }
+            if (activeInsightsRoute != null) {
+                lastInsightsPostId = activeInsightsRoute.postId
+            }
+
             Box(modifier = Modifier.fillMaxSize()) {
                 AnimatedContent(
-                    targetState = currentOverlay,
+                    targetState = baseOverlay,
                     contentKey = { route ->
                         when (route) {
                             null -> "root_tabs"
@@ -265,7 +277,7 @@ fun InstagramCloneApp(
                                         posts = resolvedPosts,
                                         initialPostId = overlay.postId,
                                         profile = appState.profile,
-                                        isScreenActive = !hasModalOpen,
+                                        isScreenActive = !hasModalOpen && activeInsightsRoute == null,
                                         onBack = { viewModel.popBackStack() },
                                         onViewInsights = { postId -> viewModel.openReelInsightsFromClick(postId) },
                                         onLikeClick = { postId -> viewModel.toggleLike(postId) },
@@ -280,37 +292,7 @@ fun InstagramCloneApp(
                             }
 
                             is OverlayRoute.ReelInsightsScreen -> {
-                                val post = appState.posts.find { it.id == overlay.postId }
-                                    ?: appState.posts.firstOrNull()
-                                if (post != null) {
-                                    ReelInsightsScreen(
-                                        post = post,
-                                        profile = appState.profile,
-                                        isEditMode = isInsightsEditMode,
-                                        onToggleEditMode = viewModel::toggleInsightsEditMode,
-                                        onBack = { viewModel.popBackStack() },
-                                        onOpenAccountInsights = { viewModel.openAccountInsightsFromClick(0) },
-                                        onUpdateInsights = { transform ->
-                                            viewModel.updatePostInsights(post.id, transform)
-                                        },
-                                        onUpdateImpact = { id, pct, status ->
-                                            viewModel.updateImpactMetric(post.id, id, pct, status)
-                                        },
-                                        onUpdateTopSource = { idx, label, pct ->
-                                            viewModel.updateTopSource(post.id, idx, label, pct)
-                                        },
-                                        onUpdateDemographic = { cat, idx, label, pct ->
-                                            viewModel.updateDemographicItem(post.id, cat, idx, label, pct)
-                                        },
-                                        onUpdateLikeCurvePoint = { idx, value ->
-                                            viewModel.updateLikeCurvePoint(post.id, idx, value)
-                                        },
-                                        onUpdateProfile = viewModel::updateProfile,
-                                        onUpdatePostDetails = { audio, liker ->
-                                            viewModel.updatePostDetails(post.id, audio, liker)
-                                        },
-                                    )
-                                }
+                                // Rendered in dedicated AnimatedVisibility overlay above to keep ReelViewer mounted
                             }
 
                             is OverlayRoute.ChatConversation -> {
@@ -418,7 +400,7 @@ fun InstagramCloneApp(
                                         MainTab.REELS -> ReelsScreen(
                                             posts = appState.posts,
                                             stories = appState.stories,
-                                            isScreenActive = !hasModalOpen && activeTab == MainTab.REELS,
+                                            isScreenActive = !hasModalOpen && activeTab == MainTab.REELS && activeInsightsRoute == null,
                                             onLikeClick = viewModel::toggleLike,
                                             onDoubleTapLike = viewModel::likePostIfUnliked,
                                             onCommentClick = viewModel::openComments,
@@ -466,6 +448,65 @@ fun InstagramCloneApp(
                                 }
                             }
                         }
+                    }
+                }
+
+                AnimatedVisibility(
+                    visible = activeInsightsRoute != null,
+                    enter = if (reducedMotion) {
+                        fadeIn(tween(0))
+                    } else {
+                        slideInHorizontally(
+                            animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
+                            initialOffsetX = { fullWidth -> fullWidth },
+                        ) + fadeIn(
+                            animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
+                            initialAlpha = 0.85f,
+                        )
+                    },
+                    exit = if (reducedMotion) {
+                        fadeOut(tween(0))
+                    } else {
+                        slideOutHorizontally(
+                            animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing),
+                            targetOffsetX = { fullWidth -> fullWidth },
+                        ) + fadeOut(
+                            animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing),
+                            targetAlpha = 0.85f,
+                        )
+                    },
+                ) {
+                    val insightsPostId = activeInsightsRoute?.postId ?: lastInsightsPostId
+                    val post = appState.posts.find { it.id == insightsPostId }
+                        ?: appState.posts.firstOrNull()
+                    if (post != null) {
+                        ReelInsightsScreen(
+                            post = post,
+                            profile = appState.profile,
+                            isEditMode = isInsightsEditMode,
+                            onToggleEditMode = viewModel::toggleInsightsEditMode,
+                            onBack = { viewModel.popBackStack() },
+                            onOpenAccountInsights = { viewModel.openAccountInsightsFromClick(0) },
+                            onUpdateInsights = { transform ->
+                                viewModel.updatePostInsights(post.id, transform)
+                            },
+                            onUpdateImpact = { id, pct, status ->
+                                viewModel.updateImpactMetric(post.id, id, pct, status)
+                            },
+                            onUpdateTopSource = { idx, label, pct ->
+                                viewModel.updateTopSource(post.id, idx, label, pct)
+                            },
+                            onUpdateDemographic = { cat, idx, label, pct ->
+                                viewModel.updateDemographicItem(post.id, cat, idx, label, pct)
+                            },
+                            onUpdateLikeCurvePoint = { idx, value ->
+                                viewModel.updateLikeCurvePoint(post.id, idx, value)
+                            },
+                            onUpdateProfile = viewModel::updateProfile,
+                            onUpdatePostDetails = { audio, liker ->
+                                viewModel.updatePostDetails(post.id, audio, liker)
+                            },
+                        )
                     }
                 }
             }
