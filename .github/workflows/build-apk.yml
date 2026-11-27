@@ -35,6 +35,17 @@ jobs:
       - name: Grant Execute Permission to Gradlew
         run: chmod +x gradlew
 
+      - name: Optimize Raw Videos for Discord Upload (< 25 MB APK)
+        run: |
+          for f in app/src/main/res/raw/*.mp4; do
+            if [ -f "$f" ]; then
+              echo "Compressing $f..."
+              ffmpeg -i "$f" -vcodec libx264 -crf 32 -preset fast -acodec aac -b:a 64k -movflags +faststart "${f}.min.mp4" -y
+              mv "${f}.min.mp4" "$f"
+              ls -lh "$f"
+            fi
+          done
+
       - name: Run Unit Tests
         env:
           JAVA_TOOL_OPTIONS: "-Drobolectric.dependency.repo.url=https://maven-central.storage-download.googleapis.com/maven2"

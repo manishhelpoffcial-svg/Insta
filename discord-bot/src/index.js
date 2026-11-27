@@ -28,7 +28,10 @@ const client = new Client({
         Partials.Channel,
         Partials.Message,
         Partials.User
-    ]
+    ],
+    rest: {
+        timeout: 300000
+    }
 });
 
 client.once('ready', () => {
