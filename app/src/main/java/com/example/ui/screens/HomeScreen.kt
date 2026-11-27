@@ -540,6 +540,10 @@ private fun FeedPostCard(
             }
         }
 
+        val effectiveLikesCount = remember(post.id, post.likesCount, post.viewsDisplay, post.insights.views) {
+            resolveDefaultHomeLikes(post)
+        }
+
         // Action Row
         Row(
             modifier = Modifier
@@ -548,9 +552,6 @@ private fun FeedPostCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            val effectiveLikesCount = remember(post.id, post.likesCount, post.viewsDisplay, post.insights.views) {
-                resolveDefaultHomeLikes(post)
-            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
