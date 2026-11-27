@@ -273,6 +273,7 @@ private fun PostDetailFeedItem(
         ) {
             val ratio = detectedVideoRatio.coerceIn(9f / 16f, 16f / 9f)
             val computedHeight = (maxWidth / ratio).coerceAtMost(maxMediaHeight)
+            val mediaWidth = (computedHeight * ratio).coerceAtMost(maxWidth)
 
             Box(
                 modifier = Modifier
@@ -308,16 +309,21 @@ private fun PostDetailFeedItem(
                         )
                     },
             ) {
-                PostMediaImage(
-                    mediaUrl = post.mediaUrl,
-                    drawableKey = post.drawableKey,
-                    videoUrl = post.videoUrl,
-                    overlayTopCaption = post.overlayTopCaption,
-                    overlaySubtitle = post.overlaySubtitle,
-                    useLetterboxMemeStyle = !hasVideo && post.mediaUrl == null && post.overlayTopCaption.isNotBlank(),
-                    contentDescription = post.caption,
-                    modifier = Modifier.fillMaxSize(),
-                )
+                if (!hasVideo || !isActive) {
+                    PostMediaImage(
+                        mediaUrl = post.mediaUrl,
+                        drawableKey = post.drawableKey,
+                        videoUrl = post.videoUrl,
+                        overlayTopCaption = post.overlayTopCaption,
+                        overlaySubtitle = post.overlaySubtitle,
+                        useLetterboxMemeStyle = !hasVideo && post.mediaUrl == null && post.overlayTopCaption.isNotBlank(),
+                        contentDescription = post.caption,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .width(mediaWidth)
+                            .height(computedHeight),
+                    )
+                }
                 if (hasVideo) {
                     InstagramVideoPlayer(
                         videoUrl = post.videoUrl!!,
@@ -328,7 +334,10 @@ private fun PostDetailFeedItem(
                         onVideoAspectRatioChanged = { ratioFromPlayer ->
                             detectedVideoRatio = ratioFromPlayer.coerceIn(9f / 16f, 16f / 9f)
                         },
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .width(mediaWidth)
+                            .height(computedHeight),
                     )
                 }
 
