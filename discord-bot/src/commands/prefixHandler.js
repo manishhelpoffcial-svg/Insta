@@ -1,8 +1,11 @@
-import { ActionRowBuilder, StringSelectMenuBuilder, EmbedBuilder } from 'discord.js';
+import { ActionRowBuilder, StringSelectMenuBuilder, EmbedBuilder, AttachmentBuilder } from 'discord.js';
+import fs from 'node:fs';
+import path from 'node:path';
 import { getSupabase } from '../database/supabaseClient.js';
 import { isAdministrator } from '../interactions/buttons/approve_payment.js';
-import { createProductSelectEmbed, createPaymentApprovedEmbed } from '../embeds/customerEmbeds.js';
-import { createHelpEmbed } from './help.js';
+import { createProductSelectEmbed, createPaymentRejectedEmbed, createUserCredentialsDmEmbed, createPasswordResetDmEmbed } from '../embeds/customerEmbeds.js';
+import { createHelpEmbed, buildHelpPayload, createAdminHelpEmbed, buildAdminHelpPayload } from './help.js';
+import { buildPlansEmbed } from './plans.js';
 import { getUserAccountEmbed } from './account.js';
 import { buildCustomerProfileEmbed } from './customer/profile.js';
 import { buildSubscriptionEmbed } from './customer/subscription.js';
@@ -14,11 +17,45 @@ import { findUser, updateUserAccountStatus, extendUserSubscription, getSystemSta
 import { getOrCreateAccount } from '../accounts/accountManager.js';
 import { provisionSubscription } from '../subscriptions/subscriptionManager.js';
 import { sendDiscordDm } from '../notifications/notifier.js';
+import { sendPaymentRejectedLog } from '../payments/paymentLogger.js';
+import { approveAndFulfillPayment } from '../payments/paymentFulfillment.js';
 import { createCustomerOverviewEmbed } from '../embeds/adminEmbeds.js';
 import { formatCurrency, formatDate } from '../utils/validators.js';
 import { processEmojiZip, buildEmojiUploadEmbed } from './admin/uploadEmojis.js';
+import { buildAccountListPayload } from './admin/accountList.js';
+import { buildAdminDashboardPayload } from '../admin/adminDashboard.js';
+import { logUserManagement, logSubscription, logSecurity } from '../utils/channelLogger.js';
 import { EMOJIS } from '../utils/emojis.js';
 import { CONFIG } from '../../config/constants.js';
+
+function findLatestApk() {
+    const candidatePaths = [
+        '/sdcard/Download/Instagram.apk',
+        '/storage/emulated/0/Download/Instagram.apk',
+        '/sdcard/insta/Instagram.apk',
+        '/storage/emulated/0/insta/Instagram.apk',
+        '/data/user/0/ai.antigem/files/home/.gemini/antigravity-cli/scratch/apk_download/Instagram-Debug-APK/app-debug.apk',
+        path.resolve(process.cwd(), 'Instagram.apk'),
+        path.resolve(process.cwd(), '../Download/Instagram.apk'),
+        path.resolve(process.cwd(), '../insta/Instagram.apk'),
+    ];
+
+    let latestFile = null;
+    let maxMtime = -1;
+
+    for (const p of candidatePaths) {
+        try {
+            if (fs.existsSync(p)) {
+                const stat = fs.statSync(p);
+                if (stat.isFile() && stat.size > 1024 * 1024 && stat.mtimeMs > maxMtime) {
+                    maxMtime = stat.mtimeMs;
+                    latestFile = p;
+                }
+            }
+        } catch (_) {}
+    }
+    return latestFile;
+}
 
 export async function handlePrefixCommand(message) {
     const rawContent = message.content.trim();
@@ -37,10 +74,55 @@ export async function handlePrefixCommand(message) {
     // 1. CUSTOMER COMMANDS
     // ==========================================
 
+    // .apk / .app / .getapk
+    if (['apk', 'app', 'getapk', 'latestapk'].includes(command)) {
+        const apkPath = findLatestApk();
+        if (!apkPath) {
+            await message.reply(`${EMOJIS.ERROR} No Instagram APK build found on the system. Please ensure the APK has been built.`);
+            return true;
+        }
+
+        const stat = fs.statSync(apkPath);
+        const sizeMb = (stat.size / (1024 * 1024)).toFixed(1);
+        const lastUpdated = new Date(stat.mtimeMs).toLocaleString();
+
+        const progressMsg = await message.reply(`${EMOJIS.REFRESH} Uploading latest **Instagram.apk** (${sizeMb} MB)... Please wait a moment.`);
+
+        try {
+            const attachment = new AttachmentBuilder(apkPath, { name: 'Instagram.apk' });
+            await message.reply({
+                content: `${EMOJIS.SUCCESS} **Here is the latest Instagram APK:**\n📂 **File:** \`Instagram.apk\`\n📦 **Size:** \`${sizeMb} MB\`\n⏱️ **Updated:** \`${lastUpdated}\``,
+                files: [attachment]
+            });
+            await progressMsg.delete().catch(() => {});
+        } catch (err) {
+            console.error('[APK Command Error]', err);
+            if (err.code === 40005 || err.message?.includes('Request entity too large') || err.message?.includes('too large')) {
+                await progressMsg.edit({
+                    content: `${EMOJIS.WARNING} **Discord File Size Limit Exceeded**\n\nThe APK size is **${sizeMb} MB**, which exceeds Discord's attachment limit for this channel/DM (standard servers allow up to 25 MB).\n\n💡 **Options to receive the direct file:**\n1. Boost this server to Level 3 (100 MB limit) to receive direct 60 MB file uploads.\n2. Or access the file directly on device storage at: \`/sdcard/Download/Instagram.apk\``
+                }).catch(() => {});
+            } else {
+                await progressMsg.edit({
+                    content: `${EMOJIS.ERROR} Failed to attach APK: ${err.message}`
+                }).catch(() => {});
+            }
+        }
+        return true;
+    }
+
     // .help / .commands
     if (command === 'help' || command === 'commands') {
-        const embed = createHelpEmbed(isAdmin);
-        await message.reply({ embeds: [embed] });
+        await message.reply(buildHelpPayload('overview'));
+        return true;
+    }
+
+    // .adhelp / .adminhelp / .ahelp
+    if (command === 'adhelp' || command === 'adminhelp' || command === 'ahelp') {
+        if (!isAdmin) {
+            await message.reply(`${EMOJIS.ERROR} Administrator access required.`);
+            return true;
+        }
+        await message.reply(buildAdminHelpPayload('overview'));
         return true;
     }
 
@@ -88,6 +170,13 @@ export async function handlePrefixCommand(message) {
     // .payment-history / .payment-status
     if (command === 'payment-history' || command === 'payment-status') {
         const embed = await buildPaymentHistoryEmbed(message.author.id);
+        await message.reply({ embeds: [embed] });
+        return true;
+    }
+
+    // .plans / .pricing
+    if (command === 'plans' || command === 'pricing') {
+        const embed = await buildPlansEmbed();
         await message.reply({ embeds: [embed] });
         return true;
     }
@@ -217,6 +306,30 @@ export async function handlePrefixCommand(message) {
     // 2. ADMINISTRATOR & OWNER COMMANDS
     // ==========================================
 
+    // .dashboard / .admindashboard
+    if (['dashboard', 'admindashboard'].includes(command)) {
+        if (!isAdmin) return message.reply(`${EMOJIS.ERROR} Administrator access required.`);
+        const payload = await buildAdminDashboardPayload();
+        await message.reply(payload);
+        return true;
+    }
+
+    // .account-list / .accounts / .accountlist [page]
+    if (['account-list', 'accounts', 'accountlist'].includes(command)) {
+        if (!isAdmin) return message.reply(`${EMOJIS.ERROR} Administrator access required.`);
+        const page = parseInt(args[0], 10) || 1;
+        const payload = await buildAccountListPayload(page);
+        await message.reply(payload);
+        return true;
+    }
+
+    // .createuser shortcut
+    if (command === 'createuser') {
+        if (!isAdmin) return message.reply(`${EMOJIS.ERROR} Administrator access required.`);
+        args = ['create', ...args];
+        command = 'user';
+    }
+
     // .user <subcommand>
     if (command === 'user') {
         if (!isAdmin) return message.reply(`${EMOJIS.ERROR} Administrator access required.`);
@@ -224,12 +337,109 @@ export async function handlePrefixCommand(message) {
         const target = args[1];
         const supabase = getSupabase();
 
+        if (sub === 'list' || sub === 'accounts') {
+            const page = parseInt(args[1], 10) || 1;
+            const payload = await buildAccountListPayload(page);
+            await message.reply(payload);
+            return true;
+        }
+
+        if (sub === 'unlock-device' || sub === 'reset-device') {
+            if (!target) return message.reply(`${EMOJIS.WARNING} **Usage:** \`.user unlock-device <username | discord_id | uuid>\``);
+            const profile = await findUser(target);
+            if (!profile) return message.reply(`${EMOJIS.ERROR} User not found: \`${target}\``);
+
+            await supabase.from('device_sessions').delete().eq('user_id', profile.id);
+            await supabase.from('profiles').update({ is_device_locked: false, locked_device_id: null, locked_at: null }).eq('id', profile.id);
+
+            await logSecurity(message.client, new EmbedBuilder()
+                .setColor(CONFIG.COLORS.WARNING)
+                .setTitle(`${EMOJIS.SECURITY} Hardware Device Lock Cleared`)
+                .setDescription(`Admin <@${message.author.id}> cleared hardware device lock for **@${profile.username}**.`)
+                .setTimestamp()
+            );
+
+            return message.reply(`${EMOJIS.SUCCESS} Device lock cleared for \`@${profile.username}\`. The user can now log in once on a new device.`);
+        }
+
         if (sub === 'create') {
             const username = args[1];
-            const pass = args[2] || null;
-            if (!username) return message.reply(`${EMOJIS.WARNING} **Usage:** \`.user create <username> [password]\``);
-            const { profile, plainPassword } = await getOrCreateAccount({ username, password: pass, discordUserId: message.author.id });
-            return message.reply(`${EMOJIS.USER_ADD} User \`@${profile.username}\` created. Password: \`${plainPassword}\``);
+            if (!username) return message.reply(`${EMOJIS.WARNING} **Usage:** \`.user create <username> [password] [duration] [@user/discord_id]\``);
+
+            let pass = null;
+            let durationDays = 30;
+            let targetDiscordUser = message.mentions.users.first() || null;
+
+            // Parse remaining arguments for password, duration, and target user
+            const remainingArgs = args.slice(2);
+            for (const arg of remainingArgs) {
+                if (arg.startsWith('<@') || /^\d{17,20}$/.test(arg)) {
+                    if (!targetDiscordUser && /^\d{17,20}$/.test(arg)) {
+                        targetDiscordUser = await message.client.users.fetch(arg).catch(() => null);
+                    }
+                } else if (/^(\d+)[dD]?$/.test(arg) || arg.toLowerCase() === 'lifetime') {
+                    durationDays = arg.toLowerCase() === 'lifetime' ? 36500 : parseInt(arg, 10);
+                } else if (!pass) {
+                    pass = arg;
+                }
+            }
+
+            const { profile, plainPassword } = await getOrCreateAccount({
+                username,
+                password: pass,
+                discordUserId: targetDiscordUser ? targetDiscordUser.id : null
+            });
+
+            // Automatically provision subscription
+            const { subscription } = await provisionSubscription({
+                userId: profile.id,
+                durationDays
+            });
+
+            let dmStatus = '';
+            if (targetDiscordUser) {
+                const dmEmbed = createUserCredentialsDmEmbed({
+                    username: profile.username,
+                    password: plainPassword,
+                    createdBy: message.author.tag,
+                    planName: subscription?.plans?.plan_name || `${durationDays} Days Plan`,
+                    expiryDate: subscription?.expiry_date
+                });
+                const sent = await sendDiscordDm(message.client, targetDiscordUser.id, dmEmbed);
+                dmStatus = sent
+                    ? `\n📬 **Auto DM:** Login credentials sent directly to <@${targetDiscordUser.id}>!`
+                    : `\n⚠️ **Auto DM:** Could not DM <@${targetDiscordUser.id}> (their direct messages may be closed).`;
+            }
+
+            // Log User Management
+            await logUserManagement(message.client, new EmbedBuilder()
+                .setColor(CONFIG.COLORS.SUCCESS)
+                .setTitle(`${EMOJIS.USER_ADD} Account Provisioned via Prefix`)
+                .addFields(
+                    { name: 'Username', value: `@${profile.username}`, inline: true },
+                    { name: 'UUID', value: `\`${profile.id}\``, inline: true },
+                    { name: 'Discord', value: targetDiscordUser ? `<@${targetDiscordUser.id}>` : '*Unlinked*', inline: true },
+                    { name: 'Validity', value: `${durationDays} Days`, inline: true },
+                    { name: 'Expiry Date', value: subscription ? formatDate(subscription.expiry_date) : '*N/A*', inline: true }
+                )
+                .setTimestamp()
+            );
+
+            // Log Subscription
+            await logSubscription(message.client, new EmbedBuilder()
+                .setColor(CONFIG.COLORS.PLAN)
+                .setTitle(`${EMOJIS.PLAN} Subscription Provisioned`)
+                .setDescription(`Admin <@${message.author.id}> provisioned **${durationDays} days** for user **@${profile.username}**.`)
+                .setTimestamp()
+            );
+
+            return message.reply(
+                `${EMOJIS.USER_ADD} **User Account Created!**\n` +
+                `• **Username:** ||${profile.username}||\n` +
+                `• **Password:** ||${plainPassword}||\n` +
+                `• **Validity:** **${durationDays} Days** (${formatDate(subscription?.expiry_date)})\n` +
+                `• **Linked Discord:** ${targetDiscordUser ? `<@${targetDiscordUser.id}>` : '`Unlinked`'}${dmStatus}`
+            );
         }
 
         if (sub === 'info') {
@@ -262,7 +472,39 @@ export async function handlePrefixCommand(message) {
             if (!profile) return message.reply(`${EMOJIS.ERROR} User not found: \`${target}\``);
             const newPass = args[2] || `Pass_${Math.random().toString(36).slice(-6)}!`;
             await supabase.auth.admin.updateUserById(profile.id, { password: newPass });
-            return message.reply(`${EMOJIS.SECURITY} Password for \`@${profile.username}\` reset to: \`${newPass}\``);
+
+            let dmStatus = '';
+            if (profile.discord_user_id) {
+                const dmEmbed = createPasswordResetDmEmbed({
+                    username: profile.username,
+                    newPassword: newPass,
+                    adminTag: message.author.tag
+                });
+                const sent = await sendDiscordDm(message.client, profile.discord_user_id, dmEmbed);
+                dmStatus = sent
+                    ? `\n📬 **Auto DM:** New password sent directly to <@${profile.discord_user_id}>!`
+                    : `\n⚠️ **Auto DM:** Could not DM <@${profile.discord_user_id}> (user DMs may be closed).`;
+            } else {
+                dmStatus = '\nℹ️ **Auto DM:** No Discord account linked to this user.';
+            }
+
+            await logSecurity(message.client, new EmbedBuilder()
+                .setColor(CONFIG.COLORS.WARNING)
+                .setTitle(`${EMOJIS.SECURITY} Password Reset by Admin`)
+                .setDescription(`Admin <@${message.author.id}> reset password for **@${profile.username}**.`)
+                .addFields(
+                    { name: 'User', value: `@${profile.username}`, inline: true },
+                    { name: 'Discord', value: profile.discord_user_id ? `<@${profile.discord_user_id}>` : '*Not linked*', inline: true },
+                    { name: 'Admin', value: `<@${message.author.id}>`, inline: true }
+                )
+                .setTimestamp()
+            );
+
+            return message.reply(
+                `${EMOJIS.SECURITY} **Password Reset Successful!**\n` +
+                `• **User:** \`@${profile.username}\`\n` +
+                `• **New Password:** ||${newPass}||${dmStatus}`
+            );
         }
 
         if (sub === 'delete') {
@@ -335,28 +577,11 @@ export async function handlePrefixCommand(message) {
             const { data: payment } = await supabase.from('payments').select('*, products(*), plans(*)').eq('payment_reference', ref).single();
             if (!payment) return message.reply(`${EMOJIS.ERROR} Payment ref \`${ref}\` not found.`);
 
-            const { user, profile, plainPassword } = await getOrCreateAccount({
-                email: payment.customer_email,
-                username: payment.customer_email?.split('@')[0],
-                password: payment.transaction_id || null,
-                discordUserId: payment.discord_user_id
+            await approveAndFulfillPayment({
+                client: message.client,
+                payment,
+                adminId: message.author.id
             });
-            const { subscription } = await provisionSubscription({
-                userId: user.id,
-                productId: payment.product_id,
-                planId: payment.plan_id,
-                durationDays: payment.plans.duration_days
-            });
-            await supabase.from('payments').update({ payment_status: 'approved', user_id: user.id, reviewed_by: message.author.id, reviewed_at: new Date().toISOString() }).eq('id', payment.id);
-
-            const customerEmbed = createPaymentApprovedEmbed({
-                productName: payment.products.product_name,
-                planName: payment.plans.plan_name,
-                expiryDate: subscription.expiry_date,
-                username: profile.username,
-                password: plainPassword
-            });
-            await sendDiscordDm(message.client, payment.discord_user_id, customerEmbed);
 
             return message.reply(`${EMOJIS.APPROVE} Payment \`${ref}\` approved! Account credentials sent in Discord DM.`);
         }
@@ -364,7 +589,24 @@ export async function handlePrefixCommand(message) {
         if (sub === 'reject') {
             if (!ref) return message.reply(`${EMOJIS.WARNING} **Usage:** \`.payment reject <payment_reference> [reason]\``);
             const reason = args.slice(2).join(' ') || 'Verification unconfirmed';
-            await supabase.from('payments').update({ payment_status: 'rejected', rejection_reason: reason, reviewed_by: message.author.id, reviewed_at: new Date().toISOString() }).eq('payment_reference', ref);
+            const { data: rejectedPayment } = await supabase
+                .from('payments')
+                .update({ payment_status: 'rejected', rejection_reason: reason, reviewed_by: message.author.id, reviewed_at: new Date().toISOString() })
+                .eq('payment_reference', ref)
+                .select()
+                .maybeSingle();
+            if (rejectedPayment) {
+                await sendDiscordDm(
+                    message.client,
+                    rejectedPayment.discord_user_id,
+                    createPaymentRejectedEmbed({ reference: rejectedPayment.payment_reference, reason })
+                );
+                await sendPaymentRejectedLog(message.client, {
+                    payment: rejectedPayment,
+                    reason,
+                    adminId: message.author.id
+                });
+            }
             return message.reply(`${EMOJIS.REJECT} Payment \`${ref}\` rejected.`);
         }
 
