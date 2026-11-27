@@ -1,6 +1,8 @@
 package com.example.data.local
 
 import android.content.Context
+import android.provider.Settings
+import java.util.UUID
 import com.example.data.DefaultSampleData
 import com.example.data.model.AppDataState
 import com.example.data.network.AuthSession
@@ -10,6 +12,7 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 
 class InstagramStorage(context: Context) {
+    private val appContext = context.applicationContext
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val moshi = Moshi.Builder()
         .addLast(KotlinJsonAdapterFactory())
@@ -200,6 +203,21 @@ class InstagramStorage(context: Context) {
         prefs.edit().putString(KEY_THEME_MODE, mode.name).apply()
     }
 
+    fun getOrCreateDeviceId(): String {
+        val existing = prefs.getString(KEY_DEVICE_ID, null)
+        if (!existing.isNullOrBlank()) return existing
+        val androidId = runCatching {
+            Settings.Secure.getString(appContext.contentResolver, Settings.Secure.ANDROID_ID)
+        }.getOrNull()?.trim().orEmpty()
+        val resolved = if (androidId.isNotBlank() && androidId != "9774d56d682e549c") {
+            "android_$androidId"
+        } else {
+            "uuid_${UUID.randomUUID()}"
+        }
+        prefs.edit().putString(KEY_DEVICE_ID, resolved).apply()
+        return resolved
+    }
+
     companion object {
         private const val KEY_THEME_MODE = "app_theme_mode"
         private const val PREFS_NAME = "instagram_clone_prefs_v1"
@@ -219,5 +237,6 @@ class InstagramStorage(context: Context) {
         private const val KEY_SUB_STATUS = "sub_status"
         private const val KEY_SUB_EXPIRY = "sub_expiry"
         private const val KEY_SUB_PRODUCT = "sub_product"
+        private const val KEY_DEVICE_ID = "locked_device_id"
     }
 }

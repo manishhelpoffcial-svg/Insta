@@ -200,13 +200,14 @@ fun IgGridTabIcon(
 fun IgReelsSquircleIcon(
     tint: Color = InstagramTheme.colors.textPrimary,
     size: Dp = 22.dp,
+    filled: Boolean = false,
     forceWhite: Boolean = false,
     contentDescription: String? = "Reels",
     modifier: Modifier = Modifier,
 ) {
     IgSuppliedIcon(
-        whiteRes = R.drawable.ic_zip_w_video_outline,
-        blackRes = R.drawable.ic_zip_b_video_outline,
+        whiteRes = if (filled) R.drawable.ic_zip_w_video_filled else R.drawable.ic_zip_w_video_outline,
+        blackRes = if (filled) R.drawable.ic_zip_b_video_filled else R.drawable.ic_zip_b_video_outline,
         size = size,
         contentDescription = contentDescription,
         tint = tint,
@@ -558,7 +559,7 @@ fun IgEyeIcon(
     modifier: Modifier = Modifier,
 ) {
     Icon(
-        painter = painterResource(R.drawable.ic_ig_eye),
+        painter = painterResource(R.drawable.ic_views_eye),
         contentDescription = "Views",
         tint = tint,
         modifier = modifier

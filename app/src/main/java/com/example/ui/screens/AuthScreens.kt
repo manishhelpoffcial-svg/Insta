@@ -587,8 +587,8 @@ fun AccessGatedScreen(
     val title = when {
         accountStatus == "banned" -> "Account Banned"
         accountStatus == "suspended" -> "Account Suspended"
-        isExpired -> "Subscription Expired"
-        else -> "Subscription Required"
+        isExpired -> "You don't have active subscription"
+        else -> "You don't have active subscription"
     }
 
     Column(

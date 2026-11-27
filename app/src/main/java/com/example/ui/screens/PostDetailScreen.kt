@@ -166,7 +166,7 @@ fun PostDetailScreen(
         }
 
         BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxWidth()) {
-            val maxMediaHeight = (maxHeight * 0.62f).coerceAtLeast(280.dp)
+            val maxMediaHeight = (maxHeight * 0.78f).coerceAtLeast(320.dp)
             LazyColumn(
                 state = listState,
                 contentPadding = PaddingValues(bottom = 24.dp),
@@ -238,7 +238,7 @@ private fun PostDetailFeedItem(
     var captionExpanded by remember(post.id) { mutableStateOf(false) }
     var showTranslationNote by remember(post.id) { mutableStateOf(false) }
     var detectedVideoRatio by remember(post.id) {
-        mutableFloatStateOf(if (post.isReel) 0.66f else 0.8f)
+        mutableFloatStateOf(if (post.isReel) 9f / 16f else 4f / 3f)
     }
 
     val hasVideo = !post.videoUrl.isNullOrBlank()
@@ -271,7 +271,7 @@ private fun PostDetailFeedItem(
         BoxWithConstraints(
             modifier = Modifier.fillMaxWidth(),
         ) {
-            val ratio = detectedVideoRatio.coerceIn(9f / 16f, 1.0f)
+            val ratio = detectedVideoRatio.coerceIn(9f / 16f, 16f / 9f)
             val computedHeight = (maxWidth / ratio).coerceAtMost(maxMediaHeight)
 
             Box(
@@ -324,9 +324,9 @@ private fun PostDetailFeedItem(
                         isMuted = isMuted,
                         isPlaying = isActive && !isHoldPaused,
                         shouldPrepare = isActive,
-                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM,
+                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT,
                         onVideoAspectRatioChanged = { ratioFromPlayer ->
-                            detectedVideoRatio = ratioFromPlayer.coerceIn(9f / 16f, 1.0f)
+                            detectedVideoRatio = ratioFromPlayer.coerceIn(9f / 16f, 16f / 9f)
                         },
                         modifier = Modifier.fillMaxSize(),
                     )

@@ -332,7 +332,7 @@ private fun FeedPostCard(
     var heartBurstTrigger by remember(post.id) { mutableIntStateOf(0) }
     var captionExpanded by remember(post.id) { mutableStateOf(false) }
     var detectedVideoRatio by remember(post.id) {
-        mutableFloatStateOf(if (post.isReel) 0.66f else 0.8f)
+        mutableFloatStateOf(if (post.isReel) 9f / 16f else 0.8f)
     }
 
     val hasVideo = !post.videoUrl.isNullOrBlank()
@@ -434,7 +434,7 @@ private fun FeedPostCard(
 
         // 100% edge-to-edge full-width media/video container (zero side black bars, clipped bounds)
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-            val ratio = detectedVideoRatio.coerceIn(0.8f, 1.35f)
+            val ratio = detectedVideoRatio.coerceIn(9f / 16f, 16f / 9f)
             val computedHeight = (maxWidth / ratio).coerceAtMost(maxMediaHeight)
 
             Box(
@@ -489,9 +489,9 @@ private fun FeedPostCard(
                         isMuted = isMuted,
                         isPlaying = isVideoActive && !isHoldPaused,
                         shouldPrepare = isVideoActive,
-                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM,
+                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT,
                         onVideoAspectRatioChanged = { ratioFromPlayer ->
-                            detectedVideoRatio = ratioFromPlayer.coerceIn(0.8f, 1.35f)
+                            detectedVideoRatio = ratioFromPlayer.coerceIn(9f / 16f, 16f / 9f)
                         },
                         modifier = Modifier.fillMaxSize(),
                     )
@@ -548,15 +548,29 @@ private fun FeedPostCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
+            val effectiveLikesCount = remember(post.id, post.likesCount, post.viewsDisplay, post.insights.views) {
+                resolveDefaultHomeLikes(post)
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(
-                    onClick = onLikeClick,
-                    modifier = Modifier.testTag("feed_like_${post.id}"),
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(onClick = onLikeClick)
+                        .padding(horizontal = 6.dp, vertical = 6.dp)
+                        .testTag("feed_like_${post.id}"),
                 ) {
                     IgHeartStrokeIcon(
                         filled = post.isLiked,
                         tint = if (post.isLiked) IgNotifRed else colors.textPrimary,
                         size = 24.dp,
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = ApifyRepository.formatCompactCount(effectiveLikesCount.toLong()),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = colors.textPrimary,
                     )
                 }
 
@@ -624,7 +638,6 @@ private fun FeedPostCard(
 
         // Likes summary & Caption
         Column(modifier = Modifier.padding(horizontal = 14.dp)) {
-            val effectiveLikesCount = if (post.likesCount > 0) post.likesCount else 48
             if (effectiveLikesCount > 0) {
                 val likedUsername = remember(post.likedByText, effectiveUsername, postIndex) {
                     resolveLikerUsername(post, postIndex, effectiveUsername)
@@ -648,7 +661,7 @@ private fun FeedPostCard(
                                 withStyle(SpanStyle(fontWeight = FontWeight.SemiBold, color = colors.textPrimary)) {
                                     append(likedUsername)
                                 }
-                                if (post.likesCount > 1) {
+                                if (effectiveLikesCount > 1) {
                                     withStyle(SpanStyle(color = colors.textPrimary)) {
                                         append(" and others")
                                     }
@@ -680,5 +693,31 @@ private fun FeedPostCard(
                     )
                 }
         }
+    }
+}
+
+private fun parseCompactViewsCount(raw: String): Long {
+    val clean = raw.replace(",", "").trim().uppercase()
+    if (clean.isBlank()) return 0L
+    return when {
+        clean.endsWith("M") -> ((clean.dropLast(1).toDoubleOrNull() ?: 0.0) * 1_000_000.0).toLong()
+        clean.endsWith("K") -> ((clean.dropLast(1).toDoubleOrNull() ?: 0.0) * 1_000.0).toLong()
+        else -> clean.toLongOrNull() ?: 0L
+    }
+}
+
+private fun resolveDefaultHomeLikes(post: MediaPost): Int {
+    if (post.likesCount > 0) return post.likesCount
+    val views = maxOf(
+        parseCompactViewsCount(post.viewsDisplay),
+        parseCompactViewsCount(post.insights.views),
+    )
+    val seed = kotlin.math.abs(post.id.hashCode())
+    return when {
+        views >= 100_000L -> listOf(2400, 3100, 4200, 5700, 6400)[seed % 5]
+        views >= 25_000L -> listOf(895, 1200, 1800, 2400)[seed % 4]
+        views >= 5_000L -> listOf(257, 412, 569, 895)[seed % 4]
+        views >= 1_000L -> listOf(64, 118, 189, 257)[seed % 4]
+        else -> listOf(64, 189, 257, 569, 895)[seed % 5]
     }
 }

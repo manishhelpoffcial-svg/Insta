@@ -134,28 +134,69 @@ class InstagramViewModel(application: Application) : AndroidViewModel(applicatio
                 return@launch
             }
 
-            // Verify subscription access
-            val verifyResult = supabaseAuthRepository.verifyUserAccess(
-                userId = cachedSession.userId,
-                accessToken = cachedSession.accessToken,
+            val deviceId = storage.getOrCreateDeviceId()
+            var activeSession = cachedSession
+
+            // Refresh JWT if expired or about to expire so user never needs to log in again
+            if (activeSession.refreshToken.isNotBlank() &&
+                (activeSession.expiresAt <= System.currentTimeMillis() + 60_000L)
+            ) {
+                val refreshed = supabaseAuthRepository.refreshSession(activeSession.refreshToken)
+                if (refreshed.isSuccess) {
+                    activeSession = refreshed.getOrThrow()
+                    storage.saveAuthSession(activeSession)
+                }
+            }
+
+            var verifyResult = supabaseAuthRepository.verifyUserAccess(
+                userId = activeSession.userId,
+                accessToken = activeSession.accessToken,
             )
+
+            // Retry once after token refresh if verification failed (e.g. 401 expired token)
+            if (verifyResult.isFailure && activeSession.refreshToken.isNotBlank()) {
+                val refreshed = supabaseAuthRepository.refreshSession(activeSession.refreshToken)
+                if (refreshed.isSuccess) {
+                    activeSession = refreshed.getOrThrow()
+                    storage.saveAuthSession(activeSession)
+                    verifyResult = supabaseAuthRepository.verifyUserAccess(
+                        userId = activeSession.userId,
+                        accessToken = activeSession.accessToken,
+                    )
+                }
+            }
+
+            val deviceCheck = supabaseAuthRepository.verifyAndLockDevice(
+                userId = activeSession.userId,
+                accessToken = activeSession.accessToken,
+                deviceId = deviceId,
+            )
+            if (deviceCheck.isFailure) {
+                storage.clearAuthSession()
+                _authUiState.value = AuthUiState.Unauthenticated(
+                    errorMessage = deviceCheck.exceptionOrNull()?.message
+                        ?: "This account is locked to another device."
+                )
+                return@launch
+            }
 
             if (verifyResult.isSuccess) {
                 val access = verifyResult.getOrThrow()
                 storage.saveSubscriptionAccess(access)
                 if (access.isAllowed) {
-                    _authUiState.value = AuthUiState.Authenticated(cachedSession)
+                    _authUiState.value = AuthUiState.Authenticated(activeSession)
                 } else {
                     _authUiState.value = AuthUiState.AccessGated(access)
                 }
             } else {
                 val cachedAccess = storage.loadSubscriptionAccess()
                 if (cachedAccess != null && cachedAccess.isAllowed) {
-                    _authUiState.value = AuthUiState.Authenticated(cachedSession)
+                    _authUiState.value = AuthUiState.Authenticated(activeSession)
+                } else if (cachedAccess != null && !cachedAccess.isAllowed) {
+                    _authUiState.value = AuthUiState.AccessGated(cachedAccess)
                 } else {
-                    _authUiState.value = AuthUiState.Unauthenticated(
-                        errorMessage = "Session expired. Please log in again."
-                    )
+                    // Stay logged in if we have a valid persisted session until subscription check succeeds
+                    _authUiState.value = AuthUiState.Authenticated(activeSession)
                 }
             }
         }
@@ -178,6 +219,23 @@ class InstagramViewModel(application: Application) : AndroidViewModel(applicatio
             }
 
             val session = result.getOrThrow()
+            val deviceId = storage.getOrCreateDeviceId()
+            val deviceCheck = supabaseAuthRepository.verifyAndLockDevice(
+                userId = session.userId,
+                accessToken = session.accessToken,
+                deviceId = deviceId,
+            )
+            if (deviceCheck.isFailure) {
+                val lockErr = deviceCheck.exceptionOrNull()?.message
+                    ?: "This account is locked to another device."
+                _authUiState.value = AuthUiState.Unauthenticated(
+                    screen = currentScreen,
+                    isLoading = false,
+                    errorMessage = lockErr,
+                )
+                return@launch
+            }
+
             storage.saveAuthSession(session)
 
             if (!session.username.isNullOrBlank()) {
@@ -215,6 +273,11 @@ class InstagramViewModel(application: Application) : AndroidViewModel(applicatio
 
             val session = result.getOrThrow()
             if (session.accessToken.isNotBlank()) {
+                supabaseAuthRepository.verifyAndLockDevice(
+                    userId = session.userId,
+                    accessToken = session.accessToken,
+                    deviceId = storage.getOrCreateDeviceId(),
+                )
                 storage.saveAuthSession(session)
                 _authUiState.value = AuthUiState.AccessGated(
                     SubscriptionAccessResult(
@@ -223,7 +286,7 @@ class InstagramViewModel(application: Application) : AndroidViewModel(applicatio
                         subscriptionStatus = "pending",
                         expiryDate = null,
                         productName = "Insight Editor",
-                        message = "Account created! Please activate a subscription plan via Discord (/purchase) to access the application."
+                        message = "You don't have active subscription"
                     )
                 )
             } else {

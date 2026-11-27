@@ -270,6 +270,7 @@ fun CreatorProfileScreen(
                         IgReelsSquircleIcon(
                             tint = if (selectedTab == 1) colors.textPrimary else colors.textSecondary,
                             size = 24.dp,
+                            filled = selectedTab == 1,
                         )
                     }
                     CreatorTabButton(
@@ -353,6 +354,8 @@ fun CreatorProfileScreen(
                                             IgReelsSquircleIcon(
                                                 tint = Color.White,
                                                 size = 18.dp,
+                                                filled = true,
+                                                forceWhite = true,
                                             )
                                         }
                                     }
