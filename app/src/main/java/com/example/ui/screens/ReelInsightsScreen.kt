@@ -63,6 +63,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -735,7 +736,7 @@ private fun OverviewTabContent(
 
         Spacer(Modifier.height(26.dp))
 
-        SectionHeaderWithInfo(title = "What affects your views", palette = palette)
+        SectionHeaderWithInfo(title = "What impacts your views", palette = palette)
         Spacer(Modifier.height(4.dp))
         Text(
             text = "Rates are listed in order of importance to reach.",
@@ -754,8 +755,8 @@ private fun OverviewTabContent(
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        ReelInsightsSkeletonBlock(modifier = Modifier.size(20.dp), cornerRadius = 10.dp)
-                        Spacer(Modifier.width(12.dp))
+                        ReelInsightsSkeletonBlock(modifier = Modifier.size(44.dp), cornerRadius = 22.dp)
+                        Spacer(Modifier.width(14.dp))
                         ReelInsightsSkeletonBlock(modifier = Modifier.width(104.dp).height(14.dp), cornerRadius = 4.dp)
                     }
                     Column(horizontalAlignment = Alignment.End) {
@@ -764,10 +765,15 @@ private fun OverviewTabContent(
                         ReelInsightsSkeletonBlock(modifier = Modifier.width(48.dp).height(10.dp), cornerRadius = 4.dp)
                     }
                 }
-                HorizontalDivider(thickness = 1.dp, color = palette.rowDivider)
             }
         } else {
-            val impactsToShow = insights.impacts.ifEmpty { com.example.data.model.defaultImpacts() }
+            val impactsToShow = remember(insights.impacts) {
+                if (insights.impacts.isEmpty() || insights.impacts.firstOrNull()?.percentage == "22.9%") {
+                    com.example.data.model.defaultImpacts()
+                } else {
+                    insights.impacts
+                }
+            }
             impactsToShow.forEach { metric ->
                 ImpactRow(
                     metric = metric,
@@ -980,6 +986,55 @@ private fun SummaryCard(
 }
 
 @Composable
+private fun IgSkipRateIcon(
+    tint: Color = Color.White,
+    size: Dp = 21.dp,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier = modifier.size(size)) {
+        val strokeWidth = 1.6.dp.toPx()
+        val radius = size.toPx() / 2f
+        val center = Offset(radius, radius)
+
+        // Draw outer dashed/dotted ring
+        drawCircle(
+            color = tint,
+            radius = radius - strokeWidth,
+            center = center,
+            style = Stroke(
+                width = strokeWidth,
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(2.5.dp.toPx(), 3.dp.toPx()), 0f),
+            ),
+        )
+
+        // Center pivot dot
+        drawCircle(
+            color = tint,
+            radius = 1.3.dp.toPx(),
+            center = center,
+        )
+
+        // Minute hand (pointing ~12:10)
+        drawLine(
+            color = tint,
+            start = center,
+            end = Offset(center.x + radius * 0.42f, center.y - radius * 0.15f),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round,
+        )
+
+        // Hour hand (pointing ~10:15)
+        drawLine(
+            color = tint,
+            start = center,
+            end = Offset(center.x - radius * 0.22f, center.y - radius * 0.38f),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round,
+        )
+    }
+}
+
+@Composable
 private fun ImpactRow(
     metric: ImpactMetric,
     palette: InsightsUiColors,
@@ -987,81 +1042,86 @@ private fun ImpactRow(
     onPercentageChange: (String) -> Unit,
     onToggleStatus: () -> Unit,
 ) {
-    val isPositive = if (metric.id == "skip") {
-        metric.status.equals("Lower", ignoreCase = true)
+    val isTypical = metric.status.equals("Typical", ignoreCase = true)
+    val statusColor = if (isTypical) {
+        palette.axisText
     } else {
-        metric.status.equals("Higher", ignoreCase = true)
+        Color(0xFF34C759) // Crisp authentic Instagram green
     }
-    val statusColor = if (isPositive) Color(0xFF00875A) else palette.axisText
 
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(if (palette.isDark) Color(0xFF1E2124) else Color(0xFFF1F3F5)),
+            contentAlignment = Alignment.Center,
         ) {
             when (metric.iconType) {
-                "skip" -> Icon(Icons.Outlined.Schedule, contentDescription = null, tint = palette.iconMuted, modifier = Modifier.size(20.dp))
-                "share" -> IgSharePlaneIcon(filled = false, tint = palette.iconMuted, size = 20.dp)
-                "like" -> IgHeartStrokeIcon(filled = false, tint = palette.iconMuted, size = 20.dp)
-                "save" -> IgBookmarkStrokeIcon(filled = false, tint = palette.iconMuted, size = 20.dp)
-                "repost" -> IgRepostLoopIcon(tint = palette.iconMuted, size = 20.dp)
-                else -> IgCommentBubbleIcon(tint = palette.iconMuted, size = 20.dp)
-            }
-            Spacer(Modifier.width(12.dp))
-            Text(
-                text = metric.label,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = palette.textPrimary,
-                modifier = Modifier.weight(1f),
-            )
-
-            Column(horizontalAlignment = Alignment.End) {
-                if (isEditMode) {
-                    InlineEditableNumber(
-                        value = metric.percentage,
-                        onValueChange = onPercentageChange,
-                        textStyle = TextStyle(
-                            fontSize = 14.5.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = palette.textPrimary,
-                            textAlign = TextAlign.End,
-                            fontFeatureSettings = "tnum",
-                        ),
-                        modifier = Modifier.width(72.dp),
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = metric.status,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = statusColor,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(statusColor.copy(alpha = 0.12f))
-                            .clickable(onClick = onToggleStatus)
-                            .padding(horizontal = 6.dp, vertical = 2.dp),
-                    )
-                } else {
-                    Text(
-                        text = metric.percentage,
-                        fontSize = 14.5.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = palette.textPrimary,
-                        style = TextStyle(fontFeatureSettings = "tnum"),
-                    )
-                    Text(
-                        text = metric.status,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = statusColor,
-                    )
-                }
+                "skip" -> IgSkipRateIcon(tint = palette.textPrimary, size = 21.dp)
+                "share" -> IgSharePlaneIcon(filled = false, tint = palette.textPrimary, size = 20.dp)
+                "like" -> IgHeartStrokeIcon(filled = false, tint = palette.textPrimary, size = 21.dp)
+                "save" -> IgBookmarkStrokeIcon(filled = false, tint = palette.textPrimary, size = 20.dp)
+                "repost" -> IgRepostLoopIcon(tint = palette.textPrimary, size = 20.dp)
+                else -> IgCommentBubbleIcon(tint = palette.textPrimary, size = 20.dp)
             }
         }
-        HorizontalDivider(thickness = 1.dp, color = palette.rowDivider)
+        Spacer(Modifier.width(14.dp))
+        Text(
+            text = metric.label,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Medium,
+            color = palette.textPrimary,
+            modifier = Modifier.weight(1f),
+        )
+
+        Column(horizontalAlignment = Alignment.End) {
+            if (isEditMode) {
+                InlineEditableNumber(
+                    value = metric.percentage,
+                    onValueChange = onPercentageChange,
+                    textStyle = TextStyle(
+                        fontSize = 15.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = palette.textPrimary,
+                        textAlign = TextAlign.End,
+                        fontFeatureSettings = "tnum",
+                    ),
+                    modifier = Modifier.width(72.dp),
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = metric.status,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = statusColor,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(statusColor.copy(alpha = 0.12f))
+                        .clickable(onClick = onToggleStatus)
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                )
+            } else {
+                Text(
+                    text = metric.percentage,
+                    fontSize = 15.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = palette.textPrimary,
+                    style = TextStyle(fontFeatureSettings = "tnum"),
+                )
+                Text(
+                    text = metric.status,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = statusColor,
+                )
+            }
+        }
     }
 }
 

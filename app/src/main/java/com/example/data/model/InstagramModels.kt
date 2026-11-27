@@ -91,12 +91,12 @@ data class ReelInsights(
 )
 
 fun defaultImpacts(): List<ImpactMetric> = listOf(
-    ImpactMetric("skip", "Skip rate", "22.9%", "Higher", "skip"),
-    ImpactMetric("share", "Share rate", "0.0%", "Lower", "share"),
-    ImpactMetric("like", "Like rate", "1.3%", "Lower", "like"),
-    ImpactMetric("save", "Save rate", "0.1%", "Lower", "save"),
+    ImpactMetric("skip", "Skip rate", "15.7%", "Lower", "skip"),
+    ImpactMetric("share", "Share rate", "0.2%", "Lower", "share"),
+    ImpactMetric("like", "Like rate", "4.2%", "Higher", "like"),
+    ImpactMetric("save", "Save rate", "0.3%", "Lower", "save"),
     ImpactMetric("repost", "Repost rate", "0.0%", "Lower", "repost"),
-    ImpactMetric("comment", "Comment rate", "0.0%", "Lower", "comment"),
+    ImpactMetric("comment", "Comment rate", "0.0%", "Typical", "comment"),
 )
 
 fun defaultTopSources(): List<SourceShare> = listOf(
