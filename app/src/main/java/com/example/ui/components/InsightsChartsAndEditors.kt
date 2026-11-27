@@ -95,6 +95,12 @@ data class InsightsUiColors(
     val pillSelected: Color,
     val track: Color,
     val activeCardBorder: Color,
+    val chartGrid: Color = Color(0xFFF2F2F2),
+    val rowDivider: Color = Color(0xFFF6F6F6),
+    val sectionDivider: Color = Color(0xFFEFEFEF),
+    val skeletonBase: Color = Color(0xFFECEEF2),
+    val skeletonHighlight: Color = Color(0xFFF6F7F9),
+    val iconMuted: Color = Color(0xFF222222),
 )
 
 @Composable
@@ -106,12 +112,18 @@ fun rememberInsightsPalette(): InsightsUiColors {
                 bg = IgInsightsBgDark,
                 card = IgInsightsCardDark,
                 border = IgInsightsBorderDark,
-                textPrimary = Color.White,
+                textPrimary = Color(0xFFF1F3F5),
                 textSecondary = IgInsightsMutedText,
                 axisText = IgInsightsAxisText,
                 pillSelected = Color(0xFF262930),
                 track = Color(0xFF262930),
-                activeCardBorder = Color.White,
+                activeCardBorder = Color(0xFF3A3F4B),
+                chartGrid = Color(0xFF20242C),
+                rowDivider = Color(0xFF1C2028),
+                sectionDivider = Color(0xFF232730),
+                skeletonBase = Color(0xFF1C2028),
+                skeletonHighlight = Color(0xFF282D37),
+                iconMuted = Color(0xFFE4E7EC),
             )
         } else {
             InsightsUiColors(
@@ -124,30 +136,25 @@ fun rememberInsightsPalette(): InsightsUiColors {
                 pillSelected = Color(0xFFF0F2F5),
                 track = Color(0xFFF0F0F5),
                 activeCardBorder = Color(0xFFD1D5DB),
+                chartGrid = Color(0xFFF2F2F2),
+                rowDivider = Color(0xFFF6F6F6),
+                sectionDivider = Color(0xFFEFEFEF),
+                skeletonBase = Color(0xFFECEEF2),
+                skeletonHighlight = Color(0xFFF6F7F9),
+                iconMuted = Color(0xFF222222),
             )
         }
     }
 }
 
 @Composable
-fun rememberCleanLightInsightsPalette(): InsightsUiColors = remember {
-    InsightsUiColors(
-        bg = Color(0xFFFFFFFF),
-        card = Color(0xFFF7F8FA),
-        border = Color(0xFFDBDBDB),
-        textPrimary = Color(0xFF000000),
-        textSecondary = Color(0xFF666666),
-        axisText = Color(0xFF737373),
-        pillSelected = Color(0xFFF0F2F5),
-        track = Color(0xFFF0F0F5),
-        activeCardBorder = Color(0xFFD1D5DB),
-    )
-}
+fun rememberCleanLightInsightsPalette(): InsightsUiColors = rememberInsightsPalette()
 
 @Composable
 fun ReelInsightsSkeletonBlock(
     modifier: Modifier = Modifier,
     cornerRadius: androidx.compose.ui.unit.Dp = 6.dp,
+    palette: InsightsUiColors = rememberInsightsPalette(),
 ) {
     val transition = rememberInfiniteTransition(label = "reel_skeleton")
     val progress by transition.animateFloat(
@@ -159,8 +166,8 @@ fun ReelInsightsSkeletonBlock(
         ),
         label = "reel_skeleton_offset",
     )
-    val base = Color(0xFFECEEF2)
-    val highlight = Color(0xFFF6F7F9)
+    val base = palette.skeletonBase
+    val highlight = palette.skeletonHighlight
     val brush = Brush.linearGradient(
         colors = listOf(base, highlight, base),
         start = Offset(progress * 450f - 220f, 0f),
@@ -360,7 +367,7 @@ fun ViewsOverTimeLineChart(
                 val h = size.height
                 listOf(0f, 0.5f, 1f).forEach { frac ->
                     drawLine(
-                        color = Color(0xFFF2F2F2),
+                        color = palette.chartGrid,
                         start = Offset(0f, h * frac),
                         end = Offset(w, h * frac),
                         strokeWidth = 1.dp.toPx(),

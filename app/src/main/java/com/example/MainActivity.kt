@@ -8,6 +8,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -453,28 +455,8 @@ fun InstagramCloneApp(
 
                 AnimatedVisibility(
                     visible = activeInsightsRoute != null,
-                    enter = if (reducedMotion) {
-                        fadeIn(tween(0))
-                    } else {
-                        slideInHorizontally(
-                            animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
-                            initialOffsetX = { fullWidth -> fullWidth },
-                        ) + fadeIn(
-                            animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
-                            initialAlpha = 0.85f,
-                        )
-                    },
-                    exit = if (reducedMotion) {
-                        fadeOut(tween(0))
-                    } else {
-                        slideOutHorizontally(
-                            animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing),
-                            targetOffsetX = { fullWidth -> fullWidth },
-                        ) + fadeOut(
-                            animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing),
-                            targetAlpha = 0.85f,
-                        )
-                    },
+                    enter = EnterTransition.None,
+                    exit = ExitTransition.None,
                 ) {
                     val insightsPostId = activeInsightsRoute?.postId ?: lastInsightsPostId
                     val post = appState.posts.find { it.id == insightsPostId }

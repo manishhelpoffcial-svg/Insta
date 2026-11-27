@@ -764,7 +764,7 @@ private fun OverviewTabContent(
                         ReelInsightsSkeletonBlock(modifier = Modifier.width(48.dp).height(10.dp), cornerRadius = 4.dp)
                     }
                 }
-                HorizontalDivider(thickness = 1.dp, color = Color(0xFFF6F6F6))
+                HorizontalDivider(thickness = 1.dp, color = palette.rowDivider)
             }
         } else {
             val impactsToShow = insights.impacts.ifEmpty { com.example.data.model.defaultImpacts() }
@@ -889,7 +889,7 @@ private fun OverviewTabContent(
         }
 
         Spacer(Modifier.height(10.dp))
-        HorizontalDivider(thickness = 1.dp, color = Color(0xFFEFEFEF))
+        HorizontalDivider(thickness = 1.dp, color = palette.sectionDivider)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -920,7 +920,7 @@ private fun OverviewTabContent(
                 modifier = Modifier.size(20.dp),
             )
         }
-        HorizontalDivider(thickness = 1.dp, color = Color(0xFFEFEFEF))
+        HorizontalDivider(thickness = 1.dp, color = palette.sectionDivider)
     }
 }
 
@@ -1002,12 +1002,12 @@ private fun ImpactRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             when (metric.iconType) {
-                "skip" -> Icon(Icons.Outlined.Schedule, contentDescription = null, tint = Color(0xFF222222), modifier = Modifier.size(20.dp))
-                "share" -> IgSharePlaneIcon(filled = false, tint = Color(0xFF222222), size = 20.dp)
-                "like" -> IgHeartStrokeIcon(filled = false, tint = Color(0xFF222222), size = 20.dp)
-                "save" -> IgBookmarkStrokeIcon(filled = false, tint = Color(0xFF222222), size = 20.dp)
-                "repost" -> IgRepostLoopIcon(tint = Color(0xFF222222), size = 20.dp)
-                else -> IgCommentBubbleIcon(tint = Color(0xFF222222), size = 20.dp)
+                "skip" -> Icon(Icons.Outlined.Schedule, contentDescription = null, tint = palette.iconMuted, modifier = Modifier.size(20.dp))
+                "share" -> IgSharePlaneIcon(filled = false, tint = palette.iconMuted, size = 20.dp)
+                "like" -> IgHeartStrokeIcon(filled = false, tint = palette.iconMuted, size = 20.dp)
+                "save" -> IgBookmarkStrokeIcon(filled = false, tint = palette.iconMuted, size = 20.dp)
+                "repost" -> IgRepostLoopIcon(tint = palette.iconMuted, size = 20.dp)
+                else -> IgCommentBubbleIcon(tint = palette.iconMuted, size = 20.dp)
             }
             Spacer(Modifier.width(12.dp))
             Text(
@@ -1061,7 +1061,7 @@ private fun ImpactRow(
                 }
             }
         }
-        HorizontalDivider(thickness = 1.dp, color = Color(0xFFF6F6F6))
+        HorizontalDivider(thickness = 1.dp, color = palette.rowDivider)
     }
 }
 
@@ -1090,12 +1090,12 @@ private fun RetentionCard(
                     verticalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("100%", color = Color(0xFF777777), fontSize = 12.sp)
+                        Text("100%", color = palette.axisText, fontSize = 12.sp)
                         Spacer(Modifier.width(12.dp))
-                        HorizontalDivider(color = Color(0xFFF2F2F2))
+                        HorizontalDivider(color = palette.chartGrid)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("50%", color = Color(0xFF777777), fontSize = 12.sp)
+                        Text("50%", color = palette.axisText, fontSize = 12.sp)
                         Spacer(Modifier.width(12.dp))
                         Text(
                             text = "Retention curve hidden",
@@ -1107,9 +1107,9 @@ private fun RetentionCard(
                     }
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("0%", color = Color(0xFF777777), fontSize = 12.sp)
+                            Text("0%", color = palette.axisText, fontSize = 12.sp)
                             Spacer(Modifier.width(12.dp))
-                            HorizontalDivider(color = Color(0xFFF2F2F2))
+                            HorizontalDivider(color = palette.chartGrid)
                         }
                         Spacer(Modifier.height(4.dp))
                         Row(
@@ -1118,8 +1118,8 @@ private fun RetentionCard(
                                 .padding(start = 42.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
-                            Text("0:00", color = Color(0xFF555555), fontSize = 12.sp)
-                            Text(durationLabel, color = Color(0xFF555555), fontSize = 12.sp)
+                            Text("0:00", color = palette.axisText, fontSize = 12.sp)
+                            Text(durationLabel, color = palette.axisText, fontSize = 12.sp)
                         }
                     }
                 }
@@ -1149,7 +1149,7 @@ private fun RetentionCard(
                             val h = size.height
                             listOf(0f, 0.5f, 1f).forEach { frac ->
                                 drawLine(
-                                    color = Color(0xFFF2F2F2),
+                                    color = palette.chartGrid,
                                     start = Offset(0f, h * frac),
                                     end = Offset(w, h * frac),
                                     strokeWidth = 1.dp.toPx(),
@@ -1189,17 +1189,17 @@ private fun RetentionCard(
                             modifier = Modifier.fillMaxHeight(),
                             verticalArrangement = Arrangement.SpaceBetween,
                         ) {
-                            Text("100%", color = Color(0xFF777777), fontSize = 12.sp)
-                            Text("50%", color = Color(0xFF777777), fontSize = 12.sp)
-                            Text("0%", color = Color(0xFF777777), fontSize = 12.sp)
+                            Text("100%", color = palette.axisText, fontSize = 12.sp)
+                            Text("50%", color = palette.axisText, fontSize = 12.sp)
+                            Text("0%", color = palette.axisText, fontSize = 12.sp)
                         }
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(start = 42.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Text("0:00", color = Color(0xFF555555), fontSize = 12.sp)
-                        Text(durationLabel, color = Color(0xFF555555), fontSize = 12.sp)
+                        Text("0:00", color = palette.axisText, fontSize = 12.sp)
+                        Text(durationLabel, color = palette.axisText, fontSize = 12.sp)
                     }
                 }
             }
@@ -1346,9 +1346,9 @@ private fun EngagementTabContent(
                         .padding(bottom = 22.dp),
                     verticalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Text("30%", color = Color(0xFF777777), fontSize = 12.sp)
-                    Text("15%", color = Color(0xFF777777), fontSize = 12.sp)
-                    Text("0%", color = Color(0xFF777777), fontSize = 12.sp)
+                    Text("30%", color = palette.axisText, fontSize = 12.sp)
+                    Text("15%", color = palette.axisText, fontSize = 12.sp)
+                    Text("0%", color = palette.axisText, fontSize = 12.sp)
                 }
 
                 Spacer(Modifier.width(12.dp))
@@ -1379,7 +1379,7 @@ private fun EngagementTabContent(
                         val h = size.height
                         listOf(0f, 0.5f, 1f).forEach { frac ->
                             drawLine(
-                                color = Color(0xFFF2F2F2),
+                                color = palette.chartGrid,
                                 start = Offset(0f, h * frac),
                                 end = Offset(w, h * frac),
                                 strokeWidth = 1.dp.toPx(),
@@ -1426,7 +1426,7 @@ private fun EngagementTabContent(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text("0:00", color = Color(0xFF555555), fontSize = 12.sp)
+                        Text("0:00", color = palette.axisText, fontSize = 12.sp)
                         if (isEditMode) {
                             InlineEditableNumber(
                                 value = insights.durationLabel,
@@ -1440,7 +1440,7 @@ private fun EngagementTabContent(
                                 modifier = Modifier.width(56.dp),
                             )
                         } else {
-                            Text(insights.durationLabel, color = Color(0xFF555555), fontSize = 12.sp)
+                            Text(insights.durationLabel, color = palette.axisText, fontSize = 12.sp)
                         }
                     }
                 }
