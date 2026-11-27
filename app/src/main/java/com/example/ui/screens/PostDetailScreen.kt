@@ -267,13 +267,12 @@ private fun PostDetailFeedItem(
             .fillMaxWidth()
             .padding(bottom = 20.dp),
     ) {
-        // 100% edge-to-edge full-width media container (fills width, dynamic vertical ratio capped at 72% height, zero side bars)
+        // 100% edge-to-edge full-width media container (width stretches to mobile, height matches video aspect ratio)
         BoxWithConstraints(
             modifier = Modifier.fillMaxWidth(),
         ) {
-            val ratio = detectedVideoRatio.coerceIn(9f / 16f, 16f / 9f)
-            val computedHeight = (maxWidth / ratio).coerceAtMost(maxMediaHeight)
-            val mediaWidth = (computedHeight * ratio).coerceAtMost(maxWidth)
+            val ratio = detectedVideoRatio.coerceIn(0.35f, 2.5f)
+            val computedHeight = maxWidth / ratio
 
             Box(
                 modifier = Modifier
@@ -318,10 +317,7 @@ private fun PostDetailFeedItem(
                         overlaySubtitle = post.overlaySubtitle,
                         useLetterboxMemeStyle = !hasVideo && post.mediaUrl == null && post.overlayTopCaption.isNotBlank(),
                         contentDescription = post.caption,
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .width(mediaWidth)
-                            .height(computedHeight),
+                        modifier = Modifier.fillMaxSize(),
                     )
                 }
                 if (hasVideo) {
@@ -330,14 +326,13 @@ private fun PostDetailFeedItem(
                         isMuted = isMuted,
                         isPlaying = isActive && !isHoldPaused,
                         shouldPrepare = isActive,
-                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT,
+                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL,
                         onVideoAspectRatioChanged = { ratioFromPlayer ->
-                            detectedVideoRatio = ratioFromPlayer.coerceIn(9f / 16f, 16f / 9f)
+                            if (ratioFromPlayer in 0.2f..3.0f) {
+                                detectedVideoRatio = ratioFromPlayer
+                            }
                         },
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .width(mediaWidth)
-                            .height(computedHeight),
+                        modifier = Modifier.fillMaxSize(),
                     )
                 }
 
