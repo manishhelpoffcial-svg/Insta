@@ -74,6 +74,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.DemographicItem
@@ -1049,6 +1050,8 @@ private fun ImpactRow(
         Color(0xFF34C759) // Crisp authentic Instagram green
     }
 
+    val isDark = InstagramTheme.colors.isDark
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1059,7 +1062,7 @@ private fun ImpactRow(
             modifier = Modifier
                 .size(44.dp)
                 .clip(CircleShape)
-                .background(if (palette.isDark) Color(0xFF1E2124) else Color(0xFFF1F3F5)),
+                .background(if (isDark) Color(0xFF1E2124) else Color(0xFFF1F3F5)),
             contentAlignment = Alignment.Center,
         ) {
             when (metric.iconType) {
