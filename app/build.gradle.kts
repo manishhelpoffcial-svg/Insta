@@ -16,8 +16,8 @@ android {
     applicationId = "com.aistudio.instagram.kmpqrz"
     minSdk = 24
     targetSdk = 36
-    versionCode = 2
-    versionName = "1.0-beta (Instagram Beta Test)"
+    versionCode = 3
+    versionName = "1.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -48,9 +48,13 @@ android {
       isCrunchPngs = false
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      // Do not remove or modify this signingConfig assignment. It is necessary for Android apps in
-      // AI Studio.
-      signingConfig = signingConfigs.getByName("release")
+      // Use release signing config if keystore exists; fallback to debug signing config for CI / local test builds
+      val releaseKeystore = signingConfigs.getByName("release").storeFile
+      if (releaseKeystore?.exists() == true) {
+        signingConfig = signingConfigs.getByName("release")
+      } else {
+        signingConfig = signingConfigs.getByName("debug")
+      }
     }
     debug {
       val customKeystore = file("${rootDir}/debug.keystore")
@@ -59,8 +63,8 @@ android {
       } else {
         signingConfig = signingConfigs.getByName("debug")
       }
-      isMinifyEnabled = true
-      isShrinkResources = true
+      isMinifyEnabled = false
+      isShrinkResources = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
     }
   }

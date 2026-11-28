@@ -35,18 +35,6 @@ jobs:
       - name: Grant Execute Permission to Gradlew
         run: chmod +x gradlew
 
-      - name: Optimize Raw Videos for Discord Upload (< 20 MB APK)
-        run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
-          for f in app/src/main/res/raw/*.mp4; do
-            if [ -f "$f" ]; then
-              echo "Compressing $f..."
-              ffmpeg -i "$f" -vf "scale='min(432,iw)':-2" -vcodec libx264 -crf 34 -preset fast -acodec aac -b:a 48k -movflags +faststart "${f}.min.mp4" -y
-              mv "${f}.min.mp4" "$f"
-              ls -lh "$f"
-            fi
-          done
-
       - name: Run Unit Tests
         env:
           JAVA_TOOL_OPTIONS: "-Drobolectric.dependency.repo.url=https://maven-central.storage-download.googleapis.com/maven2"
@@ -59,8 +47,8 @@ jobs:
             [ -f "$f" ] && echo "=== $f ===" && head -n 40 "$f"
           done
 
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+      - name: Build APKs
+        run: ./gradlew assembleDebug assembleRelease --stacktrace
 
       - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4
@@ -69,7 +57,7 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
-      - name: Upload Release APK (if generated)
+      - name: Upload Release APK
         uses: actions/upload-artifact@v4
         if: always()
         with:

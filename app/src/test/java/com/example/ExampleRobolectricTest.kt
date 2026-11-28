@@ -35,7 +35,7 @@ class ExampleRobolectricTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val appName = context.getString(R.string.app_name)
         assertEquals("Instagram", appName)
-        assertEquals("1.0-beta (Instagram Beta Test)", BuildConfig.VERSION_NAME)
+        assertEquals("1.0", BuildConfig.VERSION_NAME)
     }
 
     @Test
